@@ -9,17 +9,11 @@ resources:
   - configmap.yaml
   - postgres.yaml
   - redis.yaml
-  - backend.yaml
-  - frontend.yaml
+  - eventium.yaml
   - ingress.yaml
 
-# Registry + tag'i TEK YERDEN burada değiştir. Manifestler `eventium-backend` /
-# `eventium-frontend` isimlerini kullanıyor; aşağısı bunları gerçek imaja çevirir.
-# Örn. GHCR:  newName: ghcr.io/cosarberk/eventium-backend
+# Registry + tag'i TEK YERDEN burada değiştir.
 images:
-  - name: eventium-backend
-    newName: docker.io/cosarberk/eventium-backend
-    newTag: latest
-  - name: eventium-frontend
-    newName: docker.io/cosarberk/eventium-frontend
+  - name: eventium
+    newName: docker.io/cosarberk/eventium
     newTag: latest

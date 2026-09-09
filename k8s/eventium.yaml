@@ -1,28 +1,30 @@
+# Tek uygulama: backend + frontend aynı container'da (docker/Dockerfile).
+# Port 8080'de nginx statik SPA'yı servis eder ve API'yi 127.0.0.1:4000'e proxy'ler.
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
+  name: eventium
   namespace: eventium
 spec:
   selector:
-    app: backend
+    app: eventium
   ports:
-    - port: 4000
-      targetPort: 4000
+    - port: 80
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: eventium
   namespace: eventium
 spec:
-  # 1 replica: entrypoint her başlangıçta `prisma migrate deploy` çalıştırıyor;
+  # 1 replica: container başlangıçta `prisma migrate deploy` çalıştırıyor;
   # çok replika aynı anda migrate ederse yarışır. Ölçeklemeden önce migration'ı
   # ayrı bir Job'a al ve RUN_MIGRATIONS=false yap.
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: eventium
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -31,25 +33,29 @@ spec:
   template:
     metadata:
       labels:
-        app: backend
+        app: eventium
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: backend
+        - name: eventium
           # kustomization.yaml içindeki `images:` bloğu registry+tag'i override eder.
-          image: eventium-backend
+          image: eventium
           ports:
-            - containerPort: 4000
+            - name: http
+              containerPort: 8080
+            # Backend; Service'e dahil değil, sadece probe'lar için container-içi.
+            - name: api
+              containerPort: 4000
           envFrom:
             - configMapRef:
                 name: eventium-config
             - secretRef:
                 name: eventium-secrets
-          # Migration'lar başlangıçta çalıştığı için server'ın hazır olması gecikebilir;
-          # startupProbe hazır olana dek liveness/readiness'i beklemede tutar.
+          # Migration + iki process başlaması gecikebilir; startupProbe backend
+          # ayağa kalkana dek liveness/readiness'i beklemede tutar.
           startupProbe:
             httpGet:
               path: /health/live
@@ -57,13 +63,14 @@ spec:
             failureThreshold: 30
             periodSeconds: 5
           livenessProbe:
+            # nginx ayakta mı (backend ölürse launcher nginx'i de kapatır → restart).
             httpGet:
-              path: /health/live
-              port: 4000
+              path: /healthz
+              port: 8080
             periodSeconds: 15
             timeoutSeconds: 5
           readinessProbe:
-            # /health DB + Redis'i de kontrol eder; bağımlılık düşerse pod rotasyondan çıkar.
+            # Backend + DB + Redis sağlığı (doğrudan 4000, nginx'i atlar).
             httpGet:
               path: /health
               port: 4000
@@ -71,12 +78,11 @@ spec:
             timeoutSeconds: 5
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "150m"
+              memory: "320Mi"
             limits:
-              memory: "512Mi"
+              memory: "640Mi"
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]

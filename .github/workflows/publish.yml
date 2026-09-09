@@ -14,13 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      matrix:
-        include:
-          - name: backend
-            dockerfile: docker/Dockerfile.backend
-          - name: frontend
-            dockerfile: docker/Dockerfile.frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +29,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/eventium-${{ matrix.name }}
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/eventium
           tags: |
             type=raw,value=latest
             type=sha,format=long
@@ -45,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -112,10 +112,12 @@ eventium/
 │   ├── gitlab/              # GitLab integration plugin (example)
 │   └── nexus/               # Sonatype Nexus integration plugin (example)
 ├── docker/
-│   ├── Dockerfile.backend
-│   ├── Dockerfile.frontend
-│   └── nginx.conf
+│   ├── Dockerfile             # Tek image: backend (node) + frontend (nginx)
+│   ├── eventium-entrypoint.sh # Migration + nginx & node launcher
+│   ├── nginx.single.conf
+│   └── security-headers.conf
 ├── docker-compose.yml
+├── k8s/                       # Kubernetes manifestleri (kustomize)
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── biome.json

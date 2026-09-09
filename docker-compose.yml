@@ -45,11 +45,17 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  # Tek uygulama: backend (node) + frontend (nginx) aynı container'da.
+  app:
     build:
       context: .
-      dockerfile: docker/Dockerfile.backend
-    container_name: eventium-backend
+      dockerfile: docker/Dockerfile
+      args:
+        # Same-origin paths: the image is portable across hostnames.
+        VITE_GRAPHQL_URL: ${VITE_GRAPHQL_URL:-/graphql}
+        VITE_WS_URL: ${VITE_WS_URL:-}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: eventium
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-eventium}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-eventium}
@@ -60,10 +66,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (openssl rand -base64 48)}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required (openssl rand -base64 48)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      # Same-origin by default: the frontend proxies to this service, so no
-      # cross-origin request is made and no origin list is needed.
+      # Same-origin by default: nginx (aynı container) API'ye proxy'liyor.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
-      # Behind the bundled Nginx, so X-Forwarded-* is trustworthy.
+      # Container içindeki Nginx arkasında, X-Forwarded-* güvenilir.
       TRUST_PROXY: ${TRUST_PROXY:-true}
       # Set to false if you terminate TLS elsewhere and serve plain HTTP; the
       # session cookie is not sent over HTTP while this is true.
@@ -82,30 +87,13 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       TUNNEL_METRICS_URL: ${TUNNEL_METRICS_URL:-}
     ports:
-      # Loopback only: reach the API through the frontend's /api and /graphql.
-      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+      # Tek dış port: nginx statik + API proxy'si 8080'de.
+      - "${WEB_PORT:-80}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
-      args:
-        # Same-origin paths: the image is portable across hostnames.
-        VITE_GRAPHQL_URL: ${VITE_GRAPHQL_URL:-/graphql}
-        VITE_WS_URL: ${VITE_WS_URL:-}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
-    container_name: eventium-frontend
-    restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-80}:8080"
-    depends_on:
-      backend:
-        condition: service_started
 
   # Optional zero-config public tunnel so webhooks from GitLab/Nexus can reach
   # this instance from behind NAT. It is opt-in because it publishes the whole
@@ -120,9 +108,9 @@ services:
     container_name: eventium-cloudflared
     restart: unless-stopped
     profiles: ["tunnel"]
-    command: tunnel --no-autoupdate --url http://frontend:8080 --metrics 0.0.0.0:2000
+    command: tunnel --no-autoupdate --url http://app:8080 --metrics 0.0.0.0:2000
     depends_on:
-      - frontend
+      - app
 
 volumes:
   postgres_data:

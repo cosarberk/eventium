@@ -1,5 +1,5 @@
-# Tüm trafik frontend'e gider; frontend Nginx'i /api, /graphql, /socket.io'yu
-# backend'e proxy'liyor, bu yüzden ayrı bir backend ingress'i gerekmez.
+# Tüm trafik eventium servisine gider; container içindeki nginx /api, /graphql,
+# /socket.io'yu backend'e proxy'liyor, bu yüzden ayrı bir backend ingress'i gerekmez.
 #
 # NOT: ingressClassName ve annotation'lar ingress controller'ına göre değişir
 # (aşağıdakiler ingress-nginx içindir). Domain'ini host alanına yaz.
@@ -25,7 +25,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: frontend
+                name: eventium
                 port:
                   number: 80
   # tls:
