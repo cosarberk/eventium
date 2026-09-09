@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eventium.fullname" . }}
+  labels:
+    {{- include "eventium.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.config.NODE_ENV | quote }}
+  PORT: {{ .Values.config.PORT | quote }}
+  REDIS_URL: {{ include "eventium.redisUrl" . | quote }}
+  POSTGRES_USER: {{ .Values.postgres.user | quote }}
+  POSTGRES_DB: {{ .Values.postgres.database | quote }}
+  CORS_ORIGINS: {{ .Values.config.CORS_ORIGINS | quote }}
+  TRUST_PROXY: {{ .Values.config.TRUST_PROXY | quote }}
+  COOKIE_SECURE: {{ .Values.config.COOKIE_SECURE | quote }}
+  ALLOW_REGISTRATION: {{ .Values.config.ALLOW_REGISTRATION | quote }}
+  WEBHOOK_REQUIRE_SECRET: {{ .Values.config.WEBHOOK_REQUIRE_SECRET | quote }}
+  EVENT_RETENTION_DAYS: {{ .Values.config.EVENT_RETENTION_DAYS | quote }}
+  LOG_LEVEL: {{ .Values.config.LOG_LEVEL | quote }}
+  RUN_MIGRATIONS: {{ .Values.config.RUN_MIGRATIONS | quote }}
+  RUN_SEED: {{ .Values.config.RUN_SEED | quote }}
+  JWT_EXPIRES_IN: {{ .Values.config.JWT_EXPIRES_IN | quote }}
+  PUBLIC_URL: {{ .Values.config.PUBLIC_URL | quote }}

@@ -1,0 +1,16 @@
+Eventium kuruldu: {{ include "eventium.fullname" . }}
+
+1. Pod'ları izle:
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+2. İlk admin parolası (RUN_SEED=true ise pod log'unda bir kez görünür):
+   kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "eventium.fullname" . }} | grep -i admin
+
+{{- if .Values.ingress.enabled }}
+3. Erişim: http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+3. Ingress kapalı — port-forward ile eriş:
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "eventium.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+
+Kurulumdan sonra config.RUN_SEED=false yapıp upgrade etmen önerilir.

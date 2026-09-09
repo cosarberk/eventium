@@ -1,0 +1,79 @@
+# ── Uygulama image'ı (tek image: backend + frontend) ───────
+image:
+  repository: docker.io/cosarberk/eventium
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Private registry ise: kubectl create secret docker-registry ... ve adını buraya
+imagePullSecrets: []
+#  - name: dockerhub
+
+replicaCount: 1
+
+# ── Zorunlu secret'lar (Rancher install formunda doldur) ───
+secrets:
+  # openssl rand -base64 48
+  jwtSecret: ""
+  encryptionKey: ""
+  # Boş bırak: postgres.enabled=true iken otomatik üretilir.
+  # Harici DB kullanıyorsan tam URL'i buraya yaz.
+  databaseUrl: ""
+
+# ── Gizli olmayan ayarlar ──────────────────────────────────
+config:
+  NODE_ENV: production
+  PORT: "4000"
+  CORS_ORIGINS: http://localhost
+  TRUST_PROXY: "true"
+  COOKIE_SECURE: "true"
+  ALLOW_REGISTRATION: "false"
+  WEBHOOK_REQUIRE_SECRET: "true"
+  EVENT_RETENTION_DAYS: "30"
+  LOG_LEVEL: info
+  RUN_MIGRATIONS: "true"
+  # İlk kurulumda ilk admin'i oluşturur (parola pod log'unda). Sonra false yap.
+  RUN_SEED: "true"
+  JWT_EXPIRES_IN: 7d
+  # Webhook'ların ulaşacağı public URL — kendi domainini yaz.
+  PUBLIC_URL: https://eventium.example.com
+  # redis.enabled=false ise harici Redis URL'i:
+  REDIS_URL: ""
+
+# ── Cluster içi Postgres (test için) ───────────────────────
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  user: eventium
+  # Boşsa install sırasında doldur (secret'a yazılır).
+  password: ""
+  database: eventium
+  storage: 5Gi
+
+# ── Cluster içi Redis (test için) ──────────────────────────
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 1Gi
+
+# ── Ingress ────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: eventium.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls:
+    enabled: false
+    secretName: eventium-tls
+
+service:
+  port: 80
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 320Mi
+  limits:
+    memory: 640Mi
