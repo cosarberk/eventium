@@ -1,0 +1,33 @@
+# Build context hygiene: everything here is either rebuilt inside the image or
+# must never enter it. Without this, `COPY . .` ships host node_modules and the
+# local .env into the image.
+
+node_modules
+**/node_modules
+
+dist
+**/dist
+build
+**/build
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+.git
+.github
+.husky
+
+.env
+.env.*
+!.env.example
+
+coverage
+*.log
+logs
+
+.vscode
+.idea
+.DS_Store
+
+README.md
+LICENSE

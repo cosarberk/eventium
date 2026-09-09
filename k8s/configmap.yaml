@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eventium-config
+  namespace: eventium
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  # Cluster içi servis adları (redis.yaml / postgres.yaml Service'leri).
+  REDIS_URL: "redis://redis:6379"
+  POSTGRES_USER: "eventium"
+  POSTGRES_DB: "eventium"
+  # Aynı origin arkasında (frontend /api ve /graphql'i proxy'liyor).
+  CORS_ORIGINS: "http://localhost"
+  # Ingress/Nginx arkasında X-Forwarded-* güvenilir.
+  TRUST_PROXY: "true"
+  # TLS'i ingress termine ediyorsa true bırak. Düz HTTP ile deniyorsan false yap
+  # (aksi halde tarayıcı session cookie'sini düşürür).
+  COOKIE_SECURE: "true"
+  ALLOW_REGISTRATION: "false"
+  WEBHOOK_REQUIRE_SECRET: "true"
+  EVENT_RETENTION_DAYS: "30"
+  LOG_LEVEL: "info"
+  # Başlangıçta migration'ları uygula (entrypoint prisma migrate deploy).
+  RUN_MIGRATIONS: "true"
+  # Boş DB'de ilk admin'i oluştur; parola log'a bir kez yazılır.
+  # İlk kurulumdan sonra "false" yapıp backend'i yeniden başlat.
+  RUN_SEED: "true"
+  JWT_EXPIRES_IN: "7d"
+  # Webhook'ların (GitLab/Nexus) ulaşacağı public URL. Kendi domainini yaz.
+  PUBLIC_URL: "https://eventium.example.com"

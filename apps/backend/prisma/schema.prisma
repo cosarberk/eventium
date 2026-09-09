@@ -1,0 +1,161 @@
+// Eventium database schema.
+// Defines all persistent models for users, plugin instances, events,
+// dashboards, dashboard panels, and notification rules.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Severity levels for events ingested by plugins.
+enum Severity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+/// Platform user role.
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+/// A registered platform user.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  broadcastLinks BroadcastLink[]
+
+  @@map("users")
+}
+
+/// A concrete installation of a plugin with its own configuration.
+model PluginInstance {
+  id        String   @id @default(cuid())
+  pluginId  String   @map("plugin_id")
+  name      String
+  config    Json     @default("{}")
+  metadata  Json     @default("{}") /// Dynamic metadata fetched from the plugin's API (projects, event types, webhooks, etc.)
+  enabled   Boolean  @default(true)
+  syncedAt  DateTime? @map("synced_at") /// Last time metadata was synced from the external API
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  events Event[]
+
+  @@index([pluginId])
+  @@map("plugin_instances")
+}
+
+/// An event produced by a plugin instance.
+model Event {
+  id               String         @id @default(cuid())
+  pluginInstanceId String         @map("plugin_instance_id")
+  sourceType       String         @default("") @map("source_type") /// Data-source type (e.g. "gitlab") of the producing instance.
+  eventType        String         @map("event_type")
+  title            String
+  description      String         @default("")
+  payload          Json           @default("{}")
+  severity         Severity       @default(INFO)
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  pluginInstance PluginInstance @relation(fields: [pluginInstanceId], references: [id], onDelete: Cascade)
+
+  @@index([pluginInstanceId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("events")
+}
+
+/// A user-configured dashboard that hosts multiple panels.
+model Dashboard {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  layout      Json     @default("{}")
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  blocks         DashboardBlock[]
+  broadcastLinks BroadcastLinkDashboard[]
+
+  @@map("dashboards")
+}
+
+/// A single design-layer block on a page. A component instance whose slots are
+/// filled with cross-source bindings — no direct plugin-instance coupling.
+model DashboardBlock {
+  id            String   @id @default(cuid())
+  dashboardId   String   @map("dashboard_id")
+  componentType String   @map("component_type")
+  title         String   @default("")
+  slots         Json     @default("{}") /// slotKey -> { values: BoundValue[] }
+  options       Json     @default("{}") /// static component options
+  position      Json     @default("{\"x\": 0, \"y\": 0}")
+  size          Json     @default("{\"w\": 6, \"h\": 4}")
+  sortOrder     Int      @default(0) @map("sort_order")
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+  @@map("dashboard_blocks")
+}
+
+/// A rule that triggers notification actions when matching events arrive.
+model NotificationRule {
+  id           String   @id @default(cuid())
+  name         String
+  eventPattern String   @map("event_pattern")
+  conditions   Json     @default("[]")
+  actions      Json     @default("[]")
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_rules")
+}
+
+/// A public broadcast link that exposes one or more dashboards without authentication.
+model BroadcastLink {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  name      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String   @map("created_by")
+
+  dashboards BroadcastLinkDashboard[]
+  creator    User                     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("broadcast_links")
+}
+
+/// Join table linking broadcast links to their dashboards with ordering.
+model BroadcastLinkDashboard {
+  id              String @id @default(cuid())
+  broadcastLinkId String @map("broadcast_link_id")
+  dashboardId     String @map("dashboard_id")
+  sortOrder       Int    @default(0) @map("sort_order")
+
+  broadcastLink BroadcastLink @relation(fields: [broadcastLinkId], references: [id], onDelete: Cascade)
+  dashboard     Dashboard     @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastLinkId, dashboardId])
+  @@index([broadcastLinkId])
+  @@map("broadcast_link_dashboards")
+}

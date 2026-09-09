@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+
+# Prisma — migrations are part of the deployable artifact and must be tracked.
+# (Nothing to ignore here; `prisma migrate deploy` needs these files.)
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker/data/
+
+# Kubernetes — gerçek secret git'e girmesin (örnek şablon takip edilir).
+k8s/secret.yaml
+
+# Bu projeye özel docker login config'i (token içerir).
+.docker-eventium/
+
+# Misc
+*.tgz
+.cache/

@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# NOT: secret.yaml burada listelenmez (gerçek secret git'e girmesin diye).
+# Önce `cp secret.example.yaml secret.yaml`, doldur, sonra ayrıca uygula:
+#   kubectl apply -f k8s/secret.yaml
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - redis.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
+
+# Registry + tag'i TEK YERDEN burada değiştir. Manifestler `eventium-backend` /
+# `eventium-frontend` isimlerini kullanıyor; aşağısı bunları gerçek imaja çevirir.
+# Örn. GHCR:  newName: ghcr.io/cosarberk/eventium-backend
+images:
+  - name: eventium-backend
+    newName: docker.io/cosarberk/eventium-backend
+    newTag: latest
+  - name: eventium-frontend
+    newName: docker.io/cosarberk/eventium-frontend
+    newTag: latest

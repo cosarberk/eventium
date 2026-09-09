@@ -1,0 +1,47 @@
+{
+  "name": "eventium",
+  "private": true,
+  "description": "Plugin-based event monitoring and notification dashboard platform",
+  "author": "Relteco",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "turbo test",
+    "clean": "turbo clean",
+    "verify": "bash scripts/verify-deployment.sh",
+    "db:generate": "pnpm --filter @eventium/backend exec prisma generate",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @eventium/backend exec prisma migrate dev",
+    "db:deploy": "dotenv -e .env -- pnpm --filter @eventium/backend exec prisma migrate deploy",
+    "db:push": "dotenv -e .env -- pnpm --filter @eventium/backend exec prisma db push",
+    "db:seed": "dotenv -e .env -- pnpm --filter @eventium/backend seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:build": "docker compose build",
+    "//prepare": "husky is a local dev convenience: resolved from devDependencies (not fetched by npx, which breaks offline installs) and tolerated when absent, e.g. inside a Docker build where there is no .git",
+    "prepare": "husky || true"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "biome check --write"
+    ],
+    "*.{json,md}": [
+      "biome format --write"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "dotenv-cli": "^8.0.0",
+    "husky": "^9",
+    "lint-staged": "^17.5.0",
+    "turbo": "^2.3.0"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "nexus",
+  "name": "Sonatype Nexus",
+  "description": "Monitor repositories, components, and published artifact versions from a Sonatype Nexus Repository Manager.",
+  "version": "1.0.0",
+  "author": "Relteco",
+  "icon": "<svg viewBox=\"0 0 32 32\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 2 4 9v14l12 7 12-7V9L16 2z\" fill=\"#1B1C30\"/><path d=\"M16 2 4 9l12 7 12-7-12-7z\" fill=\"#2B2C46\"/><path d=\"m9 12 7 4 7-4M16 16v9\" stroke=\"#6CC04A\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  "main": "./dist/index.js",
+  "configFields": [
+    {
+      "key": "url",
+      "label": "Nexus URL",
+      "type": "string",
+      "required": true,
+      "description": "Base URL of your Nexus instance (e.g. https://nexus.example.com)",
+      "placeholder": "https://nexus.example.com"
+    },
+    {
+      "key": "username",
+      "label": "Username",
+      "type": "string",
+      "required": false,
+      "description": "Username for authenticated access (leave blank for anonymous)"
+    },
+    {
+      "key": "password",
+      "label": "Password / Token",
+      "type": "secret",
+      "required": false,
+      "description": "Password or token paired with the username"
+    },
+    {
+      "key": "webhookSecret",
+      "label": "Webhook Secret",
+      "type": "secret",
+      "required": false,
+      "description": "Optional shared secret for verifying incoming Nexus webhooks"
+    }
+  ]
+}

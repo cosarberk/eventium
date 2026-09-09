@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: eventium
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 4000
+      targetPort: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: eventium
+spec:
+  # 1 replica: entrypoint her başlangıçta `prisma migrate deploy` çalıştırıyor;
+  # çok replika aynı anda migrate ederse yarışır. Ölçeklemeden önce migration'ı
+  # ayrı bir Job'a al ve RUN_MIGRATIONS=false yap.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          # kustomization.yaml içindeki `images:` bloğu registry+tag'i override eder.
+          image: eventium-backend
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: eventium-config
+            - secretRef:
+                name: eventium-secrets
+          # Migration'lar başlangıçta çalıştığı için server'ın hazır olması gecikebilir;
+          # startupProbe hazır olana dek liveness/readiness'i beklemede tutar.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4000
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            # /health DB + Redis'i de kontrol eder; bağımlılık düşerse pod rotasyondan çıkar.
+            httpGet:
+              path: /health
+              port: 4000
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]

@@ -1,0 +1,33 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Monitor merge requests, pipelines, pushes, tags, and releases from GitLab.",
+  "version": "1.0.0",
+  "author": "Relteco",
+  "icon": "<svg viewBox=\"0 0 32 32\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 29.75L21.1 13.35H10.9L16 29.75Z\" fill=\"#E24329\"/><path d=\"M16 29.75L10.9 13.35H3.18L16 29.75Z\" fill=\"#FC6D26\"/><path d=\"M3.18 13.35L1.22 19.39C1.04 19.94 1.22 20.55 1.69 20.89L16 29.75L3.18 13.35Z\" fill=\"#FCA326\"/><path d=\"M3.18 13.35H10.9L7.6 3.2C7.4 2.6 6.56 2.6 6.36 3.2L3.18 13.35Z\" fill=\"#E24329\"/><path d=\"M16 29.75L21.1 13.35H28.82L16 29.75Z\" fill=\"#FC6D26\"/><path d=\"M28.82 13.35L30.78 19.39C30.96 19.94 30.78 20.55 30.31 20.89L16 29.75L28.82 13.35Z\" fill=\"#FCA326\"/><path d=\"M28.82 13.35H21.1L24.4 3.2C24.6 2.6 25.44 2.6 25.64 3.2L28.82 13.35Z\" fill=\"#E24329\"/></svg>",
+  "main": "./dist/index.js",
+  "configFields": [
+    {
+      "key": "url",
+      "label": "GitLab URL",
+      "type": "string",
+      "required": true,
+      "description": "Base URL of your GitLab instance (e.g. https://gitlab.com)",
+      "placeholder": "https://gitlab.com"
+    },
+    {
+      "key": "token",
+      "label": "Access Token",
+      "type": "secret",
+      "required": true,
+      "description": "Personal access token with api scope"
+    },
+    {
+      "key": "webhookSecret",
+      "label": "Webhook Secret",
+      "type": "secret",
+      "required": false,
+      "description": "Optional secret token verified against the X-Gitlab-Token header"
+    }
+  ]
+}
