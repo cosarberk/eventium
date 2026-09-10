@@ -31,7 +31,10 @@ function resolveAdminPassword(): { password: string; isDefault: boolean } {
   const configured = process.env.ADMIN_PASSWORD;
 
   if (configured && configured.length >= MIN_PASSWORD_LENGTH) {
-    return { password: configured, isDefault: false };
+    // "Default" is decided by the value, not by whether it was set — the chart
+    // pre-fills the field with the well-known default, and that must still force
+    // a first-login change.
+    return { password: configured, isDefault: configured === DEFAULT_ADMIN_PASSWORD };
   }
 
   if (configured) {
@@ -110,8 +113,12 @@ async function seed(): Promise<void> {
   // surgery. Without it, an existing install is left untouched.
   const existingAdmin = await prisma.user.findUnique({ where: { email } });
   if (existingAdmin) {
-    if (!configured) {
-      console.log('Admin already exists and ADMIN_PASSWORD not set. Skipping seed.');
+    // Leave an existing admin's password alone unless the operator set a
+    // *custom* one (not the shipped default). This keeps redeploys from
+    // clobbering a password the admin already changed, while still allowing a
+    // config-only reset for recovery.
+    if (!configured || configured === DEFAULT_ADMIN_PASSWORD) {
+      console.log('Admin already exists; leaving its password unchanged.');
       return;
     }
     if (configured.length < MIN_PASSWORD_LENGTH) {
@@ -125,7 +132,7 @@ async function seed(): Promise<void> {
         mustChangePassword: false,
       },
     });
-    console.log(`Admin password synced from ADMIN_PASSWORD for ${email}.`);
+    console.log(`Admin password reset from ADMIN_PASSWORD for ${email}.`);
     return;
   }
 

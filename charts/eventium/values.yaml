@@ -20,11 +20,14 @@ secrets:
   # Boş bırak: postgres.enabled=true iken otomatik üretilir.
   # Harici DB kullanıyorsan tam URL'i buraya yaz.
   databaseUrl: ""
-  # İlk admin parolası. Boş bırakırsan seed varsayılanı kullanır
-  # (admin@eventium.local / eventiumadmin123, ilk girişte değiştirmek zorunlu).
-  # Doldurursan admin bu parolayla ayarlanır (redeploy'da senkronlanır) — kubectl
-  # gerekmeden buradan parola sıfırlayabilirsin. En az 12 karakter.
-  adminPassword: ""
+  # İlk admin parolası (email: config.ADMIN_EMAIL, varsayılan admin@eventium.local).
+  # Varsayılan olarak dolu gelir; bu haliyle kurup admin@eventium.local +
+  # eventiumadmin123 ile girersin, ilk giriş parola değiştirmeni ister.
+  # Kendi parolanı yazarsan (min 12 karakter) admin onunla ayarlanır ve zorunlu
+  # değişim istenmez; mevcut kurulumda parolanı unuttuysan buraya yeni bir parola
+  # yazıp redeploy etmek onu sıfırlar (kubectl gerekmez). Varsayılanı bırakmak
+  # mevcut admin'in parolasını ezmez.
+  adminPassword: "eventiumadmin123"
 
 # ── Gizli olmayan ayarlar ──────────────────────────────────
 config:
