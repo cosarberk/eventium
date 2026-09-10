@@ -70,12 +70,24 @@ function pipelineRow(pipeline: GitLabPipeline): Record<string, unknown> {
   };
 }
 
+/**
+ * Derive the "group/project" path an MR belongs to. The cross-project listing
+ * carries `references.full` (e.g. `group/proj!12`); otherwise fall back to the
+ * project path embedded in the web URL.
+ */
+function projectPathOf(mr: GitLabMergeRequest): string {
+  if (mr.references?.full) return mr.references.full.split('!')[0] ?? '';
+  const m = mr.web_url.match(/^https?:\/\/[^/]+\/(.+?)\/-\/merge_requests\//);
+  return m?.[1] ?? '';
+}
+
 /** Flatten a merge request into a `merge_request` row. */
 function mergeRequestRow(mr: GitLabMergeRequest): Record<string, unknown> {
   return {
     id: mr.id,
     iid: mr.iid,
     title: mr.title,
+    project: projectPathOf(mr),
     state: mr.state,
     author: mr.author?.name ?? '',
     sourceBranch: mr.source_branch,
@@ -85,6 +97,7 @@ function mergeRequestRow(mr: GitLabMergeRequest): Record<string, unknown> {
     labels: mr.labels,
     url: mr.web_url,
     createdAt: mr.created_at,
+    mergedAt: mr.merged_at,
     updatedAt: mr.updated_at,
   };
 }
@@ -123,13 +136,23 @@ export const queryResource: ResourceResolver = async (
     }
 
     case 'merge_request': {
-      const projectId = numericParam(query, 'projectId');
-      if (projectId === undefined) {
-        ctx.logger.warn('merge_request query missing required projectId param');
-        return { rows: [] };
-      }
       const state = (query.params?.state as MergeRequestState | undefined) ?? 'all';
-      const mrs = await client.getMergeRequests(projectId, state, { perPage: limit });
+      const projectId = numericParam(query, 'projectId');
+
+      // With a projectId: that one project. Without: aggregate across every
+      // accessible project (optionally scoped to a group), so a board can show
+      // all selected repos at once without entering any id.
+      if (projectId !== undefined) {
+        const mrs = await client.getMergeRequests(projectId, state, { perPage: limit });
+        return { rows: mrs.map(mergeRequestRow) };
+      }
+
+      const rawGroup = query.params?.groupId;
+      const groupId =
+        rawGroup === undefined || rawGroup === null || rawGroup === ''
+          ? undefined
+          : (rawGroup as number | string);
+      const mrs = await client.listMergeRequests({ groupId, state, perPage: limit });
       return { rows: mrs.map(mergeRequestRow) };
     }
 

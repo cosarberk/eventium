@@ -88,19 +88,28 @@ export const capabilities: Capabilities = {
     {
       key: 'merge_request',
       label: 'Merge Request',
-      description: 'Merge requests for a project.',
+      description:
+        'Merge requests. With a projectId: one project. Without: all accessible ' +
+        'projects (optionally scoped to a groupId) — for an aggregate board.',
       params: [
         {
           key: 'projectId',
           label: 'Project ID',
           type: { kind: 'number' },
-          required: true,
+          required: false,
+        },
+        {
+          key: 'groupId',
+          label: 'Group ID or path',
+          type: { kind: 'string' },
+          required: false,
         },
       ],
       fields: [
         f.number('id', 'MR ID'),
         f.number('iid', 'Internal ID'),
         f.string('title', 'Title'),
+        f.string('project', 'Project'),
         f.enum('state', 'State', MERGE_REQUEST_STATES),
         f.string('author', 'Author'),
         f.string('sourceBranch', 'Source Branch'),
@@ -110,6 +119,7 @@ export const capabilities: Capabilities = {
         f.json('labels', 'Labels'),
         f.url('url', 'Web URL'),
         f.datetime('createdAt', 'Created'),
+        f.datetime('mergedAt', 'Merged At'),
         f.datetime('updatedAt', 'Updated'),
       ],
     },

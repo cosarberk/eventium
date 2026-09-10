@@ -64,6 +64,8 @@ export interface GitLabMergeRequest {
   readonly merge_status: string;
   readonly has_conflicts: boolean;
   readonly labels: readonly string[];
+  /** Present on the cross-project/group listing: e.g. `{ full: "group/proj!12" }`. */
+  readonly references?: { readonly full: string };
 }
 
 /**
@@ -237,6 +239,38 @@ export class GitLabApiClient {
     return this.request<GitLabMergeRequest[]>(
       `/api/v4/projects/${projectId}/merge_requests?${params.toString()}`,
     );
+  }
+
+  /**
+   * List merge requests across many projects at once.
+   *
+   * With no `groupId`, uses the instance-wide endpoint (`scope=all`) to return
+   * every merge request the token can see; with `groupId`, scopes to that
+   * group's projects. This is what powers an aggregate board that needs no
+   * per-project id.
+   *
+   * @param options - Optional group scope, state filter, and pagination.
+   * @returns Array of merge requests (each carries `references.full`).
+   */
+  async listMergeRequests(options?: {
+    groupId?: number | string;
+    state?: MergeRequestState;
+    page?: number;
+    perPage?: number;
+  }): Promise<readonly GitLabMergeRequest[]> {
+    const params = new URLSearchParams({
+      scope: 'all',
+      state: options?.state ?? 'all',
+      page: String(options?.page ?? 1),
+      per_page: String(options?.perPage ?? 20),
+      order_by: 'updated_at',
+      sort: 'desc',
+    });
+    const base =
+      options?.groupId !== undefined
+        ? `/api/v4/groups/${encodeURIComponent(String(options.groupId))}/merge_requests`
+        : '/api/v4/merge_requests';
+    return this.request<GitLabMergeRequest[]>(`${base}?${params.toString()}`);
   }
 
   /**
