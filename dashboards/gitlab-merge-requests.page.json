@@ -1,0 +1,137 @@
+{
+  "specVersion": 1,
+  "name": "GitLab · Merge Requests",
+  "description": "Seçili GitLab projesinin merge request'leri: açık/merged sayaçları, kaynak→hedef branch tablosu ve son merge'ler. Import sonrası her binding'deki projectId'yi kendi Project ID'nle değiştir.",
+  "columns": 12,
+  "requiredSources": ["gitlab"],
+  "blocks": [
+    {
+      "id": "sep-0",
+      "componentType": "separator",
+      "title": "",
+      "position": { "x": 0, "y": 0 },
+      "size": { "w": 12, "h": 1 },
+      "slots": {},
+      "options": { "label": "GitLab · Merge Requests" }
+    },
+    {
+      "id": "stat-0",
+      "componentType": "stat",
+      "title": "Overview",
+      "position": { "x": 0, "y": 1 },
+      "size": { "w": 12, "h": 2 },
+      "options": {},
+      "slots": {
+        "value": {
+          "values": [
+            {
+              "id": "kpi-open",
+              "label": "Open",
+              "binding": {
+                "ref": "gitlab:merge_request.id",
+                "params": { "projectId": 0, "state": "opened" },
+                "aggregate": "count"
+              },
+              "format": { "kind": "number" },
+              "rules": [{ "op": "gt", "value": 0, "severity": "info" }]
+            },
+            {
+              "id": "kpi-merged",
+              "label": "Merged",
+              "binding": {
+                "ref": "gitlab:merge_request.id",
+                "params": { "projectId": 0, "state": "merged" },
+                "aggregate": "count"
+              },
+              "format": { "kind": "number" },
+              "rules": [{ "op": "gt", "value": 0, "severity": "success" }]
+            },
+            {
+              "id": "kpi-total",
+              "label": "Total",
+              "binding": {
+                "ref": "gitlab:merge_request.id",
+                "params": { "projectId": 0 },
+                "aggregate": "count"
+              },
+              "format": { "kind": "number" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "table-0",
+      "componentType": "table",
+      "title": "Recent Merge Requests",
+      "position": { "x": 0, "y": 3 },
+      "size": { "w": 8, "h": 6 },
+      "options": {},
+      "slots": {
+        "columns": {
+          "values": [
+            {
+              "id": "col-title",
+              "label": "Title",
+              "binding": { "ref": "gitlab:merge_request.title", "params": { "projectId": 0 }, "limit": 25 }
+            },
+            {
+              "id": "col-source",
+              "label": "Source",
+              "binding": { "ref": "gitlab:merge_request.sourceBranch", "params": { "projectId": 0 }, "limit": 25 }
+            },
+            {
+              "id": "col-target",
+              "label": "Target",
+              "binding": { "ref": "gitlab:merge_request.targetBranch", "params": { "projectId": 0 }, "limit": 25 }
+            },
+            {
+              "id": "col-author",
+              "label": "Author",
+              "binding": { "ref": "gitlab:merge_request.author", "params": { "projectId": 0 }, "limit": 25 }
+            },
+            {
+              "id": "col-state",
+              "label": "State",
+              "binding": { "ref": "gitlab:merge_request.state", "params": { "projectId": 0 }, "limit": 25 }
+            },
+            {
+              "id": "col-updated",
+              "label": "Updated",
+              "binding": { "ref": "gitlab:merge_request.updatedAt", "params": { "projectId": 0 }, "limit": 25 },
+              "format": { "kind": "relative" }
+            },
+            {
+              "id": "col-url",
+              "label": "URL",
+              "binding": { "ref": "gitlab:merge_request.url", "params": { "projectId": 0 }, "limit": 25 }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "timeline-0",
+      "componentType": "timeline",
+      "title": "Recently Merged",
+      "position": { "x": 8, "y": 3 },
+      "size": { "w": 4, "h": 6 },
+      "options": {},
+      "slots": {
+        "items": {
+          "values": [
+            {
+              "id": "merged-list",
+              "label": "Merged",
+              "binding": {
+                "ref": "gitlab:merge_request.title",
+                "params": { "projectId": 0, "state": "merged" },
+                "limit": 15
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
