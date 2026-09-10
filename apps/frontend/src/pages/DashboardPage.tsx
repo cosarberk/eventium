@@ -15,6 +15,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { BlockGrid } from '@/components/design/BlockGrid';
 import { PageShareControls } from '@/components/design/PageShareControls';
 import { listComponentDescriptors } from '@/components/design/registry';
+import { VariableBar } from '@/components/design/VariableBar';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
@@ -317,7 +318,12 @@ export function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Grid + inspector */}
+      {/* Runtime variables */}
+      <div className="mb-4">
+        <VariableBar />
+      </div>
+
+      {/* Grid */}
       {blocks.length === 0 ? (
         <EmptyState
           title="Empty page"
