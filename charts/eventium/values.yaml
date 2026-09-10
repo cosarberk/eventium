@@ -2,7 +2,9 @@
 image:
   repository: docker.io/cosarberk/eventium
   tag: latest
-  pullPolicy: IfNotPresent
+  # Always: a "Redeploy" in Rancher pulls the freshly built `latest` each time,
+  # so no image tag juggling is needed to ship an update.
+  pullPolicy: Always
 
 # Private registry ise: kubectl create secret docker-registry ... ve adını buraya
 imagePullSecrets: []
@@ -18,6 +20,11 @@ secrets:
   # Boş bırak: postgres.enabled=true iken otomatik üretilir.
   # Harici DB kullanıyorsan tam URL'i buraya yaz.
   databaseUrl: ""
+  # İlk admin parolası. Boş bırakırsan seed varsayılanı kullanır
+  # (admin@eventium.local / eventiumadmin123, ilk girişte değiştirmek zorunlu).
+  # Doldurursan admin bu parolayla ayarlanır (redeploy'da senkronlanır) — kubectl
+  # gerekmeden buradan parola sıfırlayabilirsin. En az 12 karakter.
+  adminPassword: ""
 
 # ── Gizli olmayan ayarlar ──────────────────────────────────
 config:
@@ -34,6 +41,8 @@ config:
   # İlk kurulumda ilk admin'i oluşturur (parola pod log'unda). Sonra false yap.
   RUN_SEED: "true"
   JWT_EXPIRES_IN: 7d
+  # İlk admin e-postası (seed).
+  ADMIN_EMAIL: admin@eventium.local
   # Webhook'ların ulaşacağı public URL — kendi domainini yaz.
   PUBLIC_URL: https://eventium.example.com
   # redis.enabled=false ise harici Redis URL'i:

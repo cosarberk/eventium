@@ -20,4 +20,5 @@ data:
   RUN_MIGRATIONS: {{ .Values.config.RUN_MIGRATIONS | quote }}
   RUN_SEED: {{ .Values.config.RUN_SEED | quote }}
   JWT_EXPIRES_IN: {{ .Values.config.JWT_EXPIRES_IN | quote }}
+  ADMIN_EMAIL: {{ .Values.config.ADMIN_EMAIL | quote }}
   PUBLIC_URL: {{ .Values.config.PUBLIC_URL | quote }}

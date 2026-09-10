@@ -102,14 +102,34 @@ async function createDemoDashboard(userId: string): Promise<void> {
 async function seed(): Promise<void> {
   const email = (process.env.ADMIN_EMAIL ?? 'admin@eventium.local').toLowerCase();
   const name = process.env.ADMIN_NAME ?? 'Admin';
+  const configured = process.env.ADMIN_PASSWORD;
 
-  const existingCount = await prisma.user.count();
-
-  if (existingCount > 0) {
-    console.log('Database already has users. Skipping seed.');
+  // If the admin already exists, only touch it when an explicit ADMIN_PASSWORD
+  // is provided — then (re)sync that password. This lets an operator recover
+  // access entirely from config (set ADMIN_PASSWORD, redeploy) without any DB
+  // surgery. Without it, an existing install is left untouched.
+  const existingAdmin = await prisma.user.findUnique({ where: { email } });
+  if (existingAdmin) {
+    if (!configured) {
+      console.log('Admin already exists and ADMIN_PASSWORD not set. Skipping seed.');
+      return;
+    }
+    if (configured.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
+    await prisma.user.update({
+      where: { email },
+      data: {
+        passwordHash: await argon2.hash(configured),
+        role: 'ADMIN',
+        mustChangePassword: false,
+      },
+    });
+    console.log(`Admin password synced from ADMIN_PASSWORD for ${email}.`);
     return;
   }
 
+  // A different account may exist; still (re)create the admin below.
   const { password, isDefault } = resolveAdminPassword();
   const passwordHash = await argon2.hash(password);
 
