@@ -9,6 +9,7 @@
 import { registerComponent } from '../registry';
 import { BadgeRenderer } from './BadgeRenderer';
 import { BarChartRenderer } from './BarChartRenderer';
+import { CustomHtmlRenderer } from './CustomHtmlRenderer';
 import { GaugeRenderer } from './GaugeRenderer';
 import { LineChartRenderer } from './LineChartRenderer';
 import { SeparatorRenderer } from './SeparatorRenderer';
@@ -27,6 +28,7 @@ export const BUILTIN_COMPONENTS = [
   BarChartRenderer,
   GaugeRenderer,
   TextRenderer,
+  CustomHtmlRenderer,
   SeparatorRenderer,
 ] as const;
 
@@ -37,6 +39,7 @@ for (const renderer of BUILTIN_COMPONENTS) {
 export {
   BadgeRenderer,
   BarChartRenderer,
+  CustomHtmlRenderer,
   GaugeRenderer,
   LineChartRenderer,
   SeparatorRenderer,

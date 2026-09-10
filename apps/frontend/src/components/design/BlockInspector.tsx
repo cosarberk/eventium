@@ -475,6 +475,23 @@ function OptionControl({
     );
   }
 
+  if (option.type === 'code') {
+    return (
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+          {option.label}
+        </span>
+        <textarea
+          value={current === undefined || current === null ? '' : String(current)}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          rows={12}
+          className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2 py-1.5 font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40 resize-y"
+        />
+      </label>
+    );
+  }
+
   if (option.type === 'select') {
     return (
       <label className="block">
