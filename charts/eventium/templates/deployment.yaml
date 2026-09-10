@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         {{- include "eventium.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
