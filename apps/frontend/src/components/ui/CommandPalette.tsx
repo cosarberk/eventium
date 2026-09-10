@@ -115,6 +115,12 @@ export function CommandPalette() {
             label: 'Query Builder',
             run: () => window.dispatchEvent(new Event('eventium:query-builder')),
           },
+          {
+            id: 'blueprint',
+            group: 'Actions',
+            label: 'Blueprint (node editor)',
+            run: () => window.dispatchEvent(new Event('eventium:blueprint')),
+          },
           { id: 'toggle-theme', group: 'Actions', label: 'Toggle theme', run: () => toggleTheme() },
           {
             id: 'change-password',

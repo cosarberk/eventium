@@ -8,6 +8,7 @@
  * rail/inspector collapse and navigation moves into a drawer.
  */
 import { Outlet } from '@tanstack/react-router';
+import { BlueprintOverlay } from '@/components/blueprint/BlueprintEditor';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { QueryBuilderOverlay } from '@/components/query/QueryBuilder';
 import { Inspector } from '@/components/shell/Inspector';
@@ -45,6 +46,7 @@ export function DashboardLayout() {
       <NotificationCenter />
       <CommandPalette />
       <QueryBuilderOverlay />
+      <BlueprintOverlay />
       <MobileNav />
     </div>
   );
