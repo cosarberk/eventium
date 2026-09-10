@@ -108,6 +108,12 @@ export function CommandPalette() {
             label: 'Settings',
             run: () => navigate({ to: '/settings' }),
           },
+          {
+            id: 'query-builder',
+            group: 'Actions',
+            label: 'Query Builder',
+            run: () => window.dispatchEvent(new Event('eventium:query-builder')),
+          },
           { id: 'toggle-theme', group: 'Actions', label: 'Toggle theme', run: () => toggleTheme() },
           {
             id: 'change-password',

@@ -7,6 +7,7 @@
  */
 import { Outlet } from '@tanstack/react-router';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { QueryBuilderOverlay } from '@/components/query/QueryBuilder';
 import { ActivityBar } from '@/components/shell/ActivityBar';
 import { StatusBar } from '@/components/shell/StatusBar';
 import { TopBar } from '@/components/shell/TopBar';
@@ -35,6 +36,7 @@ export function DashboardLayout() {
 
       <NotificationCenter />
       <CommandPalette />
+      <QueryBuilderOverlay />
     </div>
   );
 }
