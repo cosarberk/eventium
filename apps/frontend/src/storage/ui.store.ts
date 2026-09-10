@@ -1,26 +1,35 @@
 /**
- * @fileoverview Ephemeral UI state (not persisted): the IDE shell's panel
- * collapse state and the mobile navigation drawer. Shared across shell parts.
+ * @fileoverview Ephemeral UI state for the desktop-style workspace shell:
+ * dock open/collapse state, the resizable inspector width, and the mobile nav.
  */
 import { create } from 'zustand';
 
-/** UI store shape. */
 interface UIState {
-  /** Collapse the activity rail to icons-only (desktop). */
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-  setSidebarCollapsed: (v: boolean) => void;
-  /** Show the navigation as an open drawer on small screens. */
+  /** Left tool rail expanded to labels (desktop). Default false = icon rail. */
+  railExpanded: boolean;
+  toggleRail: () => void;
+
+  /** Right inspector dock visibility + width (px). */
+  inspectorOpen: boolean;
+  inspectorWidth: number;
+  toggleInspector: () => void;
+  setInspectorWidth: (px: number) => void;
+
+  /** Mobile nav drawer. */
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
   toggleMobileNav: () => void;
 }
 
-/** Global ephemeral UI store. */
 export const useUIStore = create<UIState>((set) => ({
-  sidebarCollapsed: false,
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+  railExpanded: false,
+  toggleRail: () => set((s) => ({ railExpanded: !s.railExpanded })),
+
+  inspectorOpen: true,
+  inspectorWidth: 300,
+  toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
+  setInspectorWidth: (px) => set({ inspectorWidth: Math.max(240, Math.min(560, px)) }),
+
   mobileNavOpen: false,
   setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
   toggleMobileNav: () => set((s) => ({ mobileNavOpen: !s.mobileNavOpen })),
