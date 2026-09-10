@@ -56,6 +56,13 @@ interface DashboardState {
   setActiveDashboard: (dashboard: Dashboard) => void;
   /** Adds a new block of the given component type at the bottom of the grid. */
   addBlock: (componentType: string) => void;
+  /** Adds a fully-formed block (pre-filled slots/options/title) and selects it. */
+  addBlockWithSlots: (
+    componentType: string,
+    slots: Record<string, BlockSlot>,
+    options?: Record<string, unknown>,
+    title?: string,
+  ) => void;
   /** Removes a block by id. */
   removeBlock: (id: ID) => void;
   /** Applies a full grid layout (position + size + sortOrder) to the active page. */
@@ -159,6 +166,34 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+        });
+      },
+
+      addBlockWithSlots: (componentType, slots, options, title) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(componentType)?.descriptor;
+        const w = descriptor?.defaultWidth ?? 6;
+        const h = descriptor?.defaultHeight ?? 4;
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType,
+          title: title ?? descriptor?.label ?? componentType,
+          slots,
+          options: options ?? {},
+          position: { x: 0, y: bottom },
+          size: { w, h },
+          sortOrder: sortOrderFor(bottom, 0),
+        };
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          selectedBlockId: block.id,
         });
       },
 

@@ -8,11 +8,14 @@
  * existing resolveBindings API. Output is a portable Binding[] spec.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { FreedomField } from '@/components/ui/FreedomField';
 import { useSourceCapabilities } from '@/hooks/useSourceCapabilities';
 import { resolveBindings } from '@/services/binding.service';
+import { useDashboardStore } from '@/storage/dashboard.store';
 import type { Binding } from '@/types';
 
 /* ── Introspection shapes (capabilities JSON) ─────────────── */
@@ -42,9 +45,13 @@ const inputClass =
   'w-full px-3 py-2 rounded-lg text-sm bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-colors';
 
 /** The builder body. */
-function Builder() {
+function Builder({ onClose }: { onClose: () => void }) {
   const { capabilities } = useSourceCapabilities();
   const instances = capabilities ?? [];
+  const navigate = useNavigate();
+  const activeDashboard = useDashboardStore((s) => s.activeDashboard);
+  const addBlockWithSlots = useDashboardStore((s) => s.addBlockWithSlots);
+  const setEditMode = useDashboardStore((s) => s.setEditMode);
 
   const [instanceId, setInstanceId] = useState('');
   const active = instances.find((i) => i.instanceId === instanceId) ?? instances[0];
@@ -108,6 +115,24 @@ function Builder() {
       return out;
     },
   });
+
+  const addPanel = () => {
+    if (!entity || selectedList.length === 0) return;
+    if (!activeDashboard) {
+      toast.error("Önce Boards'ta bir sayfa aç.");
+      return;
+    }
+    const values = selectedList.map((f, i) => ({
+      id: `qb-${Date.now()}-${i}`,
+      label: f.label,
+      binding: bindings[i],
+    }));
+    addBlockWithSlots('table', { columns: { values } }, {}, entity.label);
+    setEditMode(true);
+    onClose();
+    void navigate({ to: '/boards' });
+    toast.success("Panel eklendi — Boards'ta düzenle.");
+  };
 
   if (instances.length === 0) {
     return (
@@ -226,13 +251,23 @@ function Builder() {
 
       {/* Preview */}
       <div className="flex flex-col min-h-0 gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium text-[var(--color-text-secondary)]">
             Önizleme {isFetching && '· yükleniyor…'}
           </p>
-          <p className="text-[11px] text-[var(--color-text-tertiary)] font-mono truncate max-w-[60%]">
-            {sourceType}:{entity?.key} · {selectedList.length} alan
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="hidden sm:block text-[11px] text-[var(--color-text-tertiary)] font-mono truncate max-w-[180px]">
+              {sourceType}:{entity?.key} · {selectedList.length} alan
+            </p>
+            <button
+              type="button"
+              onClick={addPanel}
+              disabled={selectedList.length === 0}
+              className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
+            >
+              Panele ekle
+            </button>
+          </div>
         </div>
         <div className={`${box} flex-1 overflow-auto min-h-[240px]`}>
           {error ? (
@@ -352,7 +387,7 @@ export function QueryBuilderOverlay() {
               </button>
             </div>
             <div className="flex-1 min-h-0 p-4">
-              <Builder />
+              <Builder onClose={() => setOpen(false)} />
             </div>
           </motion.div>
         </motion.div>
