@@ -1,11 +1,13 @@
 /**
- * @fileoverview Global styles for the Eventium application.
- * Uses Tailwind CSS v4 with custom theme variables for dark/light mode support.
+ * @fileoverview Global styles & design tokens for the Eventium platform.
+ * Tailwind CSS v4. Single source of truth for the IDE-grade design system:
+ * color (light/dark), radius, elevation, spacing, motion. Existing token names
+ * are preserved for backward-compat; richer tokens are layered on top.
  */
 @import "tailwindcss";
 
 @theme {
-  /* Brand colors */
+  /* ── Brand (indigo→violet) ─────────────────────────────── */
   --color-brand-50: #eef2ff;
   --color-brand-100: #e0e7ff;
   --color-brand-200: #c7d2fe;
@@ -16,19 +18,38 @@
   --color-brand-700: #4338ca;
   --color-brand-800: #3730a3;
   --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
 
-  /* Severity colors */
+  /* ── Accent (cyan) — for highlights, active data, node edges ─ */
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
+
+  /* ── Severity ──────────────────────────────────────────── */
   --color-severity-critical: #ef4444;
   --color-severity-high: #f97316;
   --color-severity-medium: #eab308;
   --color-severity-low: #22c55e;
   --color-severity-info: #3b82f6;
 
-  /* Spacing */
-  --spacing-sidebar: 16rem;
-  --spacing-header: 3.5rem;
+  /* ── Layout spacing (IDE shell) ────────────────────────── */
+  --spacing-activity: 3.25rem;   /* activity bar (icon rail) */
+  --spacing-sidebar: 16rem;      /* primary side panel */
+  --spacing-sidebar-sm: 13rem;
+  --spacing-inspector: 20rem;    /* right properties drawer */
+  --spacing-header: 3.25rem;
+  --spacing-status: 1.75rem;     /* bottom status bar */
 
-  /* Animation */
+  /* ── Radius scale ──────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-up: slide-up 0.3s ease-out;
   --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
@@ -37,96 +58,119 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
-
   @keyframes slide-up {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
   @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
 }
 
-/* Light theme (default) */
+/* ── Light theme (default) ───────────────────────────────── */
 :root {
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f8fafc;
-  --color-bg-tertiary: #f1f5f9;
+  --color-bg-secondary: #f7f8fa;
+  --color-bg-tertiary: #eef1f5;
   --color-bg-elevated: #ffffff;
-  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+  --color-bg-sunken: #f2f4f7;      /* recessed surfaces (canvas, wells) */
+  --color-bg-overlay: rgba(15, 23, 42, 0.45);
 
-  --color-border-primary: #e2e8f0;
-  --color-border-secondary: #cbd5e1;
+  --color-border-primary: #e5e8ee;
+  --color-border-secondary: #cfd5df;
+  --color-border-strong: #b6bcc8;
 
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-tertiary: #94a3b8;
+  --color-text-primary: #0d1424;
+  --color-text-secondary: #4a5568;
+  --color-text-tertiary: #8a94a6;
   --color-text-inverse: #ffffff;
 
-  --color-surface-hover: #f1f5f9;
-  --color-surface-active: #e2e8f0;
+  --color-surface-hover: #f0f2f6;
+  --color-surface-active: #e6e9ef;
+  --color-ring: rgba(99, 102, 241, 0.45);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.10), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 28px -6px rgba(15, 23, 42, 0.14), 0 6px 12px -8px rgba(15, 23, 42, 0.10);
+  --shadow-xl: 0 24px 56px -12px rgba(15, 23, 42, 0.22);
 }
 
-/* Dark theme */
+/* ── Dark theme (deep, pro — VS/Illustrator vibe) ────────── */
 .dark {
-  --color-bg-primary: #0b0f19;
-  --color-bg-secondary: #111827;
-  --color-bg-tertiary: #1e293b;
-  --color-bg-elevated: #1a2332;
-  --color-bg-overlay: rgba(0, 0, 0, 0.7);
+  --color-bg-primary: #0a0e17;
+  --color-bg-secondary: #0f1420;
+  --color-bg-tertiary: #161d2c;
+  --color-bg-elevated: #131a28;
+  --color-bg-sunken: #070a11;
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
 
-  --color-border-primary: #1e293b;
-  --color-border-secondary: #334155;
+  --color-border-primary: #1c2536;
+  --color-border-secondary: #2a3548;
+  --color-border-strong: #3a475e;
 
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-tertiary: #64748b;
-  --color-text-inverse: #0f172a;
+  --color-text-primary: #eef2f8;
+  --color-text-secondary: #9aa7bd;
+  --color-text-tertiary: #5f6d84;
+  --color-text-inverse: #0a0e17;
 
-  --color-surface-hover: #1e293b;
-  --color-surface-active: #334155;
+  --color-surface-hover: #1a2334;
+  --color-surface-active: #232f45;
+  --color-ring: rgba(129, 140, 248, 0.55);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 16px -4px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 8px 16px -10px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 32px 64px -16px rgba(0, 0, 0, 0.75);
 }
 
-/* Base styles */
+/* ── Base ────────────────────────────────────────────────── */
+html, body, #root {
+  height: 100%;
+}
+
 body {
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--color-text-primary);
   background-color: var(--color-bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Monospace for code editors / data / ids */
+.font-mono,
+code, kbd, pre, samp {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+::selection {
+  background: var(--color-brand-500);
+  color: #fff;
 }
 
+/* ── Scrollbars (thin, themed) ───────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-secondary);
-  border-radius: 3px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); background-clip: padding-box; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-secondary) transparent; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
-}
-
-/* Focus visible ring */
+/* ── Focus ring ──────────────────────────────────────────── */
 *:focus-visible {
   outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Utility: subtle dotted canvas background for the builder surface */
+.bg-canvas-dots {
+  background-color: var(--color-bg-sunken);
+  background-image: radial-gradient(var(--color-border-primary) 1px, transparent 1px);
+  background-size: 20px 20px;
 }

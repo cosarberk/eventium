@@ -1,33 +1,40 @@
 /**
- * @fileoverview Main layout wrapper component.
- * Composes the Sidebar, Header, and content area into the primary application shell.
+ * @fileoverview Application shell (IDE-grade).
+ * Composes the activity rail, top command bar, scrollable content (Outlet),
+ * bottom status bar, notification center and the global command palette.
+ * Fully responsive: the rail collapses to icons on desktop and becomes a
+ * slide-in drawer on mobile; overlays never squeeze the content.
  */
 import { Outlet } from '@tanstack/react-router';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
-import { Header } from './Header';
-import { Sidebar } from './Sidebar';
+import { ActivityBar } from '@/components/shell/ActivityBar';
+import { StatusBar } from '@/components/shell/StatusBar';
+import { TopBar } from '@/components/shell/TopBar';
+import { CommandPalette } from '@/components/ui/CommandPalette';
+import { useUIStore } from '@/storage/ui.store';
 
-/**
- * Renders the full dashboard layout with sidebar navigation, top header,
- * notification center overlay, and a main content area.
- * Uses TanStack Router's Outlet for rendering child routes.
- * @returns Dashboard layout element
- */
+/** The full authenticated application shell. */
 export function DashboardLayout() {
+  const collapsed = useUIStore((s) => s.sidebarCollapsed);
+
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
-      <Sidebar />
-      <Header />
+      <ActivityBar />
 
-      {/* Main content area offset by sidebar width and header height */}
-      <main className="ml-sidebar pt-header min-h-screen">
-        <div className="p-5">
+      <div
+        className={`min-h-screen flex flex-col transition-[margin] duration-200 ${
+          collapsed ? 'md:ml-activity' : 'md:ml-sidebar'
+        }`}
+      >
+        <TopBar />
+        <main className="flex-1 p-4 sm:p-6">
           <Outlet />
-        </div>
-      </main>
+        </main>
+        <StatusBar />
+      </div>
 
-      {/* Notification center overlay */}
       <NotificationCenter />
+      <CommandPalette />
     </div>
   );
 }
