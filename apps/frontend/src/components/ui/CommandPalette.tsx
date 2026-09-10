@@ -69,11 +69,12 @@ export function CommandPalette() {
     () =>
       (
         [
+          { id: 'go-home', group: 'Go to', label: 'Home', run: () => navigate({ to: '/' }) },
           {
-            id: 'go-dashboard',
+            id: 'go-boards',
             group: 'Go to',
-            label: 'Dashboard',
-            run: () => navigate({ to: '/' }),
+            label: 'Boards',
+            run: () => navigate({ to: '/boards' }),
           },
           {
             id: 'go-links',

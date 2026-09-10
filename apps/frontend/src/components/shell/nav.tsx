@@ -13,6 +13,20 @@ export interface NavItem {
 
 const ic = 'w-[18px] h-[18px]';
 
+function HomeIcon() {
+  return (
+    <svg className={ic} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path
+        d="M3 7.5L9 2l6 5.5M4.5 6.5V15a1 1 0 001 1h7a1 1 0 001-1V6.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function DashboardIcon() {
   return (
     <svg className={ic} viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -88,7 +102,8 @@ function SettingsIcon() {
 
 /** Primary navigation destinations (role-gated). */
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
+  { to: '/', label: 'Home', icon: <HomeIcon /> },
+  { to: '/boards', label: 'Boards', icon: <DashboardIcon /> },
   { to: '/links', label: 'Linklerim', icon: <LinksIcon />, minRole: 'EDITOR' },
   { to: '/plugins', label: 'Plugins', icon: <PluginsIcon />, minRole: 'EDITOR' },
   { to: '/live', label: 'Live View', icon: <LiveIcon /> },
@@ -98,7 +113,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 /** Human title for the current path (top bar breadcrumb). */
 export function titleForPath(path: string): string {
-  if (path === '/') return 'Dashboard';
+  if (path === '/') return 'Home';
   const item = NAV_ITEMS.find((n) => n.to !== '/' && path.startsWith(n.to));
   if (item) return item.label;
   if (path.startsWith('/change-password')) return 'Change password';

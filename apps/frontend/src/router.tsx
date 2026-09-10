@@ -11,6 +11,7 @@ import { BroadcastLinksPage } from '@/pages/BroadcastLinksPage';
 import { BroadcastPage } from '@/pages/BroadcastPage';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { HomePage } from '@/pages/HomePage';
 import { LivePage } from '@/pages/LivePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PluginsPage } from '@/pages/PluginsPage';
@@ -38,10 +39,17 @@ const authenticatedLayout = createRoute({
   ),
 });
 
-/** Dashboard home route (/) */
-const dashboardRoute = createRoute({
+/** Home / overview landing (/) */
+const homeRoute = createRoute({
   getParentRoute: () => authenticatedLayout,
   path: '/',
+  component: HomePage,
+});
+
+/** Boards — dashboards manager (/boards) */
+const dashboardRoute = createRoute({
+  getParentRoute: () => authenticatedLayout,
+  path: '/boards',
   component: DashboardPage,
 });
 
@@ -145,6 +153,7 @@ const liveDashboardRoute = createRoute({
 /** Assembled route tree */
 const routeTree = rootRoute.addChildren([
   authenticatedLayout.addChildren([
+    homeRoute,
     dashboardRoute,
     broadcastLinksRoute,
     pluginsRoute,
