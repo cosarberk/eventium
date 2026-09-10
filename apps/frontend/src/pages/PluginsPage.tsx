@@ -285,7 +285,6 @@ export function PluginsPage() {
                               onClick={() =>
                                 syncMetadataMutation.mutate(plugin.id, {
                                   onSuccess: () => toast.success('Metadata synced'),
-                                  onError: () => toast.error('Sync failed'),
                                 })
                               }
                               disabled={syncMetadataMutation.isPending}
@@ -443,7 +442,6 @@ export function PluginsPage() {
                     setInstallModal(null);
                     setTab('installed');
                   },
-                  onError: () => toast.error('Install failed'),
                 },
               );
             }}
@@ -478,7 +476,6 @@ export function PluginsPage() {
                     toast.success('Configuration updated');
                     setConfigEditPlugin(null);
                   },
-                  onError: () => toast.error('Failed to update config'),
                 },
               );
             }}
@@ -775,7 +772,6 @@ function ProjectsModal({ plugin, webhookUrl, onClose }: ProjectsModalProps) {
           toast.success(`Monitoring ${data.filter((t) => t.monitored).length} project(s)`);
           onClose();
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to update webhooks'),
       },
     );
   };

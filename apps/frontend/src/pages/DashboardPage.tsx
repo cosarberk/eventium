@@ -137,7 +137,6 @@ export function DashboardPage() {
                       toast.success('Page created');
                       setShowCreateModal(false);
                     },
-                    onError: () => toast.error('Failed to create page'),
                   },
                 )
               }
@@ -354,7 +353,6 @@ export function DashboardPage() {
                     toast.success('Page created');
                     setShowCreateModal(false);
                   },
-                  onError: () => toast.error('Failed to create page'),
                 },
               )
             }

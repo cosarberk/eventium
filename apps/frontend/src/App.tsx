@@ -5,18 +5,29 @@
  */
 
 import { Theme } from '@radix-ui/themes';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { Provider as UrqlProvider } from 'urql';
 import { urqlClient } from '@/api/client';
+import { getErrorMessage } from '@/api/http';
 import { useAuth } from '@/hooks/useAuth';
 import { router } from '@/router';
 import { useThemeStore } from '@/storage/theme.store';
 
-/** TanStack Query client with default configuration */
+/**
+ * TanStack Query client. A single global error handler surfaces every failed
+ * query and mutation as a toast, so no request fails silently — individual
+ * callers no longer need their own error toasts.
+ */
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => toast.error(getErrorMessage(error)),
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => toast.error(getErrorMessage(error)),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 10_000,

@@ -4,12 +4,11 @@
  * with a public broadcast link so the live/TV view is immediately usable.
  * Reads credentials from ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME env vars.
  *
- * When ADMIN_PASSWORD is absent a strong one is generated and printed once —
- * a seed script must never bake a guessable password into a deployment.
+ * When ADMIN_PASSWORD is absent the well-known default below is used and the
+ * account is flagged `mustChangePassword`, so the first login forces a reset.
  *
  * Usage: npx tsx prisma/seed.ts
  */
-import { randomBytes } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 
@@ -18,27 +17,31 @@ const prisma = new PrismaClient();
 /** Minimum admin password length, matching the register endpoint. */
 const MIN_PASSWORD_LENGTH = 12;
 
+/** Default admin password used when ADMIN_PASSWORD is not provided. */
+const DEFAULT_ADMIN_PASSWORD = 'eventiumadmin123';
+
 /**
  * Resolve the initial admin password: the configured one when it is strong
- * enough, otherwise a freshly generated secret that is printed once.
+ * enough, otherwise the well-known default (which forces a change on first
+ * login via `mustChangePassword`).
  *
- * @returns The password and whether it was generated.
+ * @returns The password and whether it is the forced-change default.
  */
-function resolveAdminPassword(): { password: string; generated: boolean } {
+function resolveAdminPassword(): { password: string; isDefault: boolean } {
   const configured = process.env.ADMIN_PASSWORD;
 
   if (configured && configured.length >= MIN_PASSWORD_LENGTH) {
-    return { password: configured, generated: false };
+    return { password: configured, isDefault: false };
   }
 
   if (configured) {
     throw new Error(
       `ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters. ` +
-        'Unset it to have one generated for you.',
+        'Unset it to use the default (eventiumadmin123).',
     );
   }
 
-  return { password: randomBytes(18).toString('base64url'), generated: true };
+  return { password: DEFAULT_ADMIN_PASSWORD, isDefault: true };
 }
 
 /**
@@ -107,7 +110,7 @@ async function seed(): Promise<void> {
     return;
   }
 
-  const { password, generated } = resolveAdminPassword();
+  const { password, isDefault } = resolveAdminPassword();
   const passwordHash = await argon2.hash(password);
 
   const user = await prisma.user.create({
@@ -116,15 +119,18 @@ async function seed(): Promise<void> {
       name,
       passwordHash,
       role: 'ADMIN',
+      // Default password → force a change on first login.
+      mustChangePassword: isDefault,
     },
   });
 
   console.log(`Admin user created: ${user.email} (${user.id})`);
-  if (generated) {
+  if (isDefault) {
     console.log('');
     console.log('  ┌─────────────────────────────────────────────────────────┐');
-    console.log('  │  Generated admin password — shown only once:            │');
-    console.log(`  │  ${password.padEnd(53)} │`);
+    console.log('  │  Default admin credentials — change on first login:     │');
+    console.log(`  │  email:    ${email.padEnd(45)} │`);
+    console.log(`  │  password: ${password.padEnd(45)} │`);
     console.log('  └─────────────────────────────────────────────────────────┘');
     console.log('');
   }

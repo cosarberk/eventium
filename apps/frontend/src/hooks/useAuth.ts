@@ -62,6 +62,19 @@ export function useAuth() {
   );
 
   /**
+   * Changes the current user's password and clears the forced-change flag.
+   * @param currentPassword - The user's existing password.
+   * @param newPassword - The new password (min 12 chars).
+   */
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      await authApi.changePassword(currentPassword, newPassword);
+      if (user) setUser({ ...user, mustChangePassword: false });
+    },
+    [user, setUser],
+  );
+
+  /**
    * Terminates the current session.
    * Clears the auth store regardless of API outcome.
    */
@@ -97,6 +110,7 @@ export function useAuth() {
     isLoading,
     login,
     register,
+    changePassword,
     logout,
     checkAuth,
   };

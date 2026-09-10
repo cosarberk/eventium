@@ -10,7 +10,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import mercurius, { type IResolvers, type MercuriusContext } from 'mercurius';
 import { z } from 'zod';
 
@@ -23,6 +23,7 @@ import {
   clearCookieOptions,
   cookieOptions,
   requireAuth,
+  requireRole,
   signToken,
 } from './middleware/index.js';
 import { DataSourceManager, registerSourcesFromManifests } from './plugins/index.js';
@@ -53,6 +54,38 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.email().max(320),
   password: z.string().min(1).max(256),
+});
+
+/** Allowed platform roles for admin user-management requests. */
+const roleSchema = z.enum(['ADMIN', 'EDITOR', 'VIEWER']);
+
+/** Zod schema for changing the current user's password. */
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(12).max(256),
+});
+
+/** Zod schema for creating a user (admin only). */
+const createUserSchema = z.object({
+  email: z.email().max(320),
+  name: z.string().trim().min(1).max(128),
+  password: z.string().min(12).max(256),
+  role: roleSchema,
+});
+
+/** Zod schema for updating a user's name/role (admin only). */
+const updateUserSchema = z
+  .object({
+    name: z.string().trim().min(1).max(128).optional(),
+    role: roleSchema.optional(),
+  })
+  .refine((v) => v.name !== undefined || v.role !== undefined, {
+    message: 'Nothing to update',
+  });
+
+/** Zod schema for an admin resetting a user's password. */
+const resetPasswordSchema = z.object({
+  newPassword: z.string().min(12).max(256),
 });
 
 /**
@@ -89,6 +122,21 @@ export async function buildApp(): Promise<FastifyInstance> {
         },
       }),
     },
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  Uniform error envelope                                             */
+  /* ------------------------------------------------------------------ */
+  // Every failure — thrown errors, validation, rate limits — leaves as
+  // `{ error: string }` so the frontend can rely on a single shape. 5xx
+  // messages are not leaked to the client; they are logged instead.
+  app.setErrorHandler((error: FastifyError, request, reply) => {
+    const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
+    if (statusCode >= 500) {
+      request.log.error({ err: error }, 'Unhandled request error');
+      return reply.code(statusCode).send({ error: 'Internal server error' });
+    }
+    return reply.code(statusCode).send({ error: error.message });
   });
 
   /* ------------------------------------------------------------------ */
@@ -325,7 +373,13 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     reply.setCookie(COOKIE_NAME, token, cookieOptions);
     return reply.send({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mustChangePassword: user.mustChangePassword,
+      },
     });
   });
 
@@ -349,7 +403,14 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     const user = await prisma.user.findUnique({
       where: { id: jwtUser.sub },
-      select: { id: true, email: true, name: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        mustChangePassword: true,
+        createdAt: true,
+      },
     });
 
     if (!user) {
@@ -360,6 +421,178 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
 
     return reply.send({ user });
+  });
+
+  /**
+   * Change the current user's own password. Verifies the current password and
+   * clears the `mustChangePassword` flag (used by the first-login flow).
+   */
+  app.post('/api/auth/change-password', { onRequest: [requireAuth] }, async (request, reply) => {
+    const jwtUser = request.user;
+    if (!jwtUser) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const parsed = changePasswordSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'Validation failed',
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: jwtUser.sub } });
+    if (!user) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const valid = await argon2.verify(user.passwordHash, parsed.data.currentPassword);
+    if (!valid) {
+      return reply.code(400).send({ error: 'Current password is incorrect' });
+    }
+
+    const passwordHash = await argon2.hash(parsed.data.newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, mustChangePassword: false },
+    });
+
+    return reply.send({ ok: true });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  REST: User management (admin only)                                 */
+  /* ------------------------------------------------------------------ */
+
+  /** Fields returned for any user record (never the password hash). */
+  const userSelect = {
+    id: true,
+    email: true,
+    name: true,
+    role: true,
+    mustChangePassword: true,
+    createdAt: true,
+  } as const;
+
+  /** List all users. */
+  app.get('/api/users', { onRequest: [requireRole('ADMIN')] }, async (_request, reply) => {
+    const users = await prisma.user.findMany({
+      select: userSelect,
+      orderBy: { createdAt: 'asc' },
+    });
+    return reply.send({ users });
+  });
+
+  /** Create a user. New accounts must change their password on first login. */
+  app.post('/api/users', { onRequest: [requireRole('ADMIN')] }, async (request, reply) => {
+    const parsed = createUserSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'Validation failed',
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
+    }
+
+    const normalizedEmail = parsed.data.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existing) {
+      return reply.code(409).send({ error: 'Email already registered' });
+    }
+
+    const passwordHash = await argon2.hash(parsed.data.password);
+    const user = await prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        name: parsed.data.name,
+        passwordHash,
+        role: parsed.data.role,
+        mustChangePassword: true,
+      },
+      select: userSelect,
+    });
+
+    return reply.code(201).send({ user });
+  });
+
+  /** Update a user's name and/or role. Guards the last remaining admin. */
+  app.patch('/api/users/:id', { onRequest: [requireRole('ADMIN')] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = updateUserSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'Validation failed',
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
+    }
+
+    if (parsed.data.role && parsed.data.role !== 'ADMIN') {
+      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      if (
+        target?.role === 'ADMIN' &&
+        (await prisma.user.count({ where: { role: 'ADMIN' } })) <= 1
+      ) {
+        return reply.code(400).send({ error: 'Cannot demote the last admin' });
+      }
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: parsed.data,
+      select: userSelect,
+    });
+    return reply.send({ user });
+  });
+
+  /** Reset a user's password; forces a change on their next login. */
+  app.post(
+    '/api/users/:id/reset-password',
+    { onRequest: [requireRole('ADMIN')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const parsed = resetPasswordSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: z.flattenError(parsed.error).fieldErrors,
+        });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+      if (!existing) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      const passwordHash = await argon2.hash(parsed.data.newPassword);
+      await prisma.user.update({
+        where: { id },
+        data: { passwordHash, mustChangePassword: true },
+      });
+      return reply.send({ ok: true });
+    },
+  );
+
+  /** Delete a user. Cannot delete yourself or the last admin. */
+  app.delete('/api/users/:id', { onRequest: [requireRole('ADMIN')] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (request.user?.sub === id) {
+      return reply.code(400).send({ error: 'You cannot delete your own account' });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (!target) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    if (target.role === 'ADMIN' && (await prisma.user.count({ where: { role: 'ADMIN' } })) <= 1) {
+      return reply.code(400).send({ error: 'Cannot delete the last admin' });
+    }
+
+    await prisma.user.delete({ where: { id } });
+    return reply.send({ ok: true });
   });
 
   /* ------------------------------------------------------------------ */

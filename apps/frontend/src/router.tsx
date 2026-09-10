@@ -9,12 +9,14 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { BroadcastLinksPage } from '@/pages/BroadcastLinksPage';
 import { BroadcastPage } from '@/pages/BroadcastPage';
+import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LivePage } from '@/pages/LivePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PluginsPage } from '@/pages/PluginsPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { UsersPage } from '@/pages/UsersPage';
 
 /** Root route — renders child routes via Outlet */
 const rootRoute = createRootRoute({
@@ -64,6 +66,13 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+/** User management route (/users) — admin only (backend-enforced). */
+const usersRoute = createRoute({
+  getParentRoute: () => authenticatedLayout,
+  path: '/users',
+  component: UsersPage,
+});
+
 /* -------------------------------------------------------------------------- */
 /*  Public routes — no DashboardLayout, no auth                               */
 /* -------------------------------------------------------------------------- */
@@ -104,6 +113,17 @@ const liveLayoutRoute = createRoute({
   ),
 });
 
+/** Forced/voluntary password change (/change-password) — auth, no dashboard. */
+const changePasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/change-password',
+  component: () => (
+    <AuthGuard>
+      <ChangePasswordPage />
+    </AuthGuard>
+  ),
+});
+
 /** Live preview route (/live) */
 const liveRoute = createRoute({
   getParentRoute: () => liveLayoutRoute,
@@ -129,10 +149,12 @@ const routeTree = rootRoute.addChildren([
     broadcastLinksRoute,
     pluginsRoute,
     settingsRoute,
+    usersRoute,
   ]),
   liveLayoutRoute.addChildren([liveRoute, liveDashboardRoute]),
   loginRoute,
   registerRoute,
+  changePasswordRoute,
   broadcastRoute,
 ]);
 

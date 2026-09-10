@@ -170,6 +170,8 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  /** When true, the app forces a password change before anything else. */
+  mustChangePassword?: boolean;
 }
 
 /** A monitorable target and whether the Eventium webhook is installed on it. */

@@ -2,9 +2,11 @@
  * @fileoverview Navigation sidebar component.
  * Provides the primary navigation for the Eventium dashboard application.
  */
-import { Link, useRouterState } from '@tanstack/react-router';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { type Role, usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/hooks/useAuth';
+import { hasRole, type Role, usePermissions } from '@/hooks/usePermissions';
+import { useAuthStore } from '@/storage/auth.store';
 
 /** Navigation item definition */
 interface NavItem {
@@ -123,12 +125,36 @@ function SettingsIcon() {
   );
 }
 
+/** SVG icon for the users nav item */
+function UsersIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="6.5" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M1.5 15a5 5 0 0110 0M12 4.2a2.5 2.5 0 010 4.6M13 15a5 5 0 00-2-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** Primary navigation items */
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { path: '/links', label: 'Linklerim', icon: <LinksIcon />, minRole: 'EDITOR' },
   { path: '/plugins', label: 'Plugins', icon: <PluginsIcon />, minRole: 'EDITOR' },
   { path: '/live', label: 'Live View', icon: <LiveIcon /> },
+  { path: '/users', label: 'Users', icon: <UsersIcon />, minRole: 'ADMIN' },
   { path: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ];
 
@@ -140,10 +166,18 @@ const NAV_ITEMS: NavItem[] = [
 export function Sidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const { canEdit } = usePermissions();
+  const { role } = usePermissions();
+  const user = useAuthStore((s) => s.user);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   // Hide destinations whose actions the server would reject anyway.
-  const navItems = NAV_ITEMS.filter((item) => item.minRole !== 'EDITOR' || canEdit);
+  const navItems = NAV_ITEMS.filter((item) => !item.minRole || hasRole(role, item.minRole));
+
+  const onLogout = async () => {
+    await logout();
+    void navigate({ to: '/login' });
+  };
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-sidebar z-30 flex flex-col bg-[var(--color-bg-elevated)] border-r border-[var(--color-border-primary)]">
@@ -192,9 +226,37 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-[var(--color-border-primary)]">
-        <p className="text-[10px] text-[var(--color-text-tertiary)]">Relteco Eventium v0.1.0</p>
+      {/* Footer: signed-in user + actions */}
+      <div className="px-3 py-3 border-t border-[var(--color-border-primary)] space-y-2">
+        {user && (
+          <div className="px-2">
+            <p className="text-xs font-medium text-[var(--color-text-primary)] truncate">
+              {user.name}
+            </p>
+            <p className="text-[10px] text-[var(--color-text-tertiary)] truncate">
+              {user.email} · {user.role}
+            </p>
+          </div>
+        )}
+        <div className="flex items-center gap-2 px-2">
+          <Link
+            to="/change-password"
+            className="text-[11px] text-[var(--color-text-secondary)] hover:text-brand-500 transition-colors"
+          >
+            Change password
+          </Link>
+          <span className="text-[var(--color-text-tertiary)]">·</span>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="text-[11px] text-[var(--color-text-secondary)] hover:text-red-500 transition-colors"
+          >
+            Log out
+          </button>
+        </div>
+        <p className="px-2 text-[10px] text-[var(--color-text-tertiary)]">
+          Relteco Eventium v0.1.0
+        </p>
       </div>
     </aside>
   );
