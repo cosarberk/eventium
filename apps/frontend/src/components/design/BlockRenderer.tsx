@@ -26,6 +26,10 @@ export interface BlockRendererProps {
   onRemove?: () => void;
   /** Configure handler, shown as a control when editing. */
   onConfigure?: () => void;
+  /** Whether this block is selected (builder). */
+  selected?: boolean;
+  /** Select handler when the panel is clicked (builder). */
+  onSelect?: () => void;
 }
 
 /** A centered, muted placeholder used for empty/error/unknown states. */
@@ -96,6 +100,8 @@ export function BlockRenderer({
   editing,
   onRemove,
   onConfigure,
+  selected,
+  onSelect,
 }: BlockRendererProps): ReactNode {
   const body = <BlockBody block={block} isLive={isLive} />;
 
@@ -109,6 +115,8 @@ export function BlockRenderer({
       editing={editing}
       onRemove={onRemove}
       onConfigure={onConfigure}
+      selected={selected}
+      onSelect={onSelect}
     >
       {body}
     </PanelWrapper>

@@ -43,6 +43,7 @@ export function DashboardPage() {
   } = useDashboard();
 
   const selectBlock = useDashboardStore((s) => s.selectBlock);
+  const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
   const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -301,6 +302,11 @@ export function DashboardPage() {
         <BlockGrid
           blocks={blocks}
           editing={isEditMode}
+          selectedId={selectedBlockId}
+          onSelectBlock={(id) => {
+            selectBlock(id);
+            setInspectorOpen(true);
+          }}
           onLayoutChange={updateBlockLayout}
           onRemoveBlock={removeBlock}
           onConfigureBlock={(id) => {

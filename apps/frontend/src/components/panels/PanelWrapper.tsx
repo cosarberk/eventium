@@ -22,6 +22,10 @@ interface PanelWrapperProps {
   onRemove?: () => void;
   /** Callback when the configure button is clicked. */
   onConfigure?: () => void;
+  /** Whether this panel is currently selected (builder). */
+  selected?: boolean;
+  /** Called when the panel is clicked to select it (builder). */
+  onSelect?: () => void;
   /** Additional CSS class names. */
   className?: string;
 }
@@ -59,11 +63,20 @@ export function PanelWrapper({
   onConfigure,
   headerActions,
   children,
+  selected = false,
+  onSelect,
   className = '',
 }: PanelWrapperProps) {
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: panel selection; keyboard access via header controls
+    // biome-ignore lint/a11y/useKeyWithClickEvents: panel selection; keyboard access via header controls
     <div
-      className={`flex flex-col h-full rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] shadow-sm overflow-hidden ${className}`}
+      onClick={onSelect}
+      className={`flex flex-col h-full rounded-xl bg-[var(--color-bg-elevated)] border shadow-sm overflow-hidden transition-shadow ${
+        selected
+          ? 'border-brand-500 ring-2 ring-brand-500/50'
+          : 'border-[var(--color-border-primary)]'
+      } ${className}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border-primary)] shrink-0">

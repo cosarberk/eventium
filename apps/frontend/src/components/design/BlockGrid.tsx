@@ -41,6 +41,10 @@ export interface BlockGridProps {
   onRemoveBlock?: (id: string) => void;
   /** Open a block's inspector by id (builder only). */
   onConfigureBlock?: (id: string) => void;
+  /** Currently selected block id (builder only). */
+  selectedId?: string | null;
+  /** Select a block by id when clicked (builder only). */
+  onSelectBlock?: (id: string) => void;
 }
 
 /**
@@ -55,6 +59,8 @@ export function BlockGrid({
   onLayoutChange,
   onRemoveBlock,
   onConfigureBlock,
+  selectedId,
+  onSelectBlock,
 }: BlockGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -108,6 +114,8 @@ export function BlockGrid({
               block={block}
               isLive={isLive}
               editing={editing}
+              selected={editing && selectedId === block.id}
+              onSelect={editing && onSelectBlock ? () => onSelectBlock(block.id) : undefined}
               onRemove={editing && onRemoveBlock ? () => onRemoveBlock(block.id) : undefined}
               onConfigure={
                 editing && onConfigureBlock ? () => onConfigureBlock(block.id) : undefined
