@@ -40,9 +40,16 @@ interface DashboardState {
   isEditMode: boolean;
   /** Currently selected block id (drives the Inspector dock). */
   selectedBlockId: ID | null;
+  /** Undo/redo history of block snapshots (structural edits). */
+  past: DashboardBlock[][];
+  future: DashboardBlock[][];
 
   /** Selects a block for the inspector (null clears). */
   selectBlock: (id: ID | null) => void;
+  /** Undo the last structural edit. */
+  undo: () => void;
+  /** Redo the last undone edit. */
+  redo: () => void;
   /** Replaces the list of pages and reconciles the active selection. */
   setDashboards: (dashboards: Dashboard[]) => void;
   /** Sets the active page. */
@@ -73,8 +80,34 @@ export const useDashboardStore = create<DashboardState>()(
       dashboards: [],
       isEditMode: false,
       selectedBlockId: null,
+      past: [],
+      future: [],
 
       selectBlock: (id) => set({ selectedBlockId: id }),
+
+      undo: () => {
+        const { past, future, activeDashboard } = get();
+        const prev = past[past.length - 1];
+        if (!prev || !activeDashboard) return;
+        set({
+          past: past.slice(0, -1),
+          future: [activeDashboard.blocks, ...future].slice(0, 50),
+          activeDashboard: { ...activeDashboard, blocks: prev },
+          selectedBlockId: null,
+        });
+      },
+
+      redo: () => {
+        const { past, future, activeDashboard } = get();
+        const next = future[0];
+        if (!next || !activeDashboard) return;
+        set({
+          past: [...past, activeDashboard.blocks].slice(-50),
+          future: future.slice(1),
+          activeDashboard: { ...activeDashboard, blocks: next },
+          selectedBlockId: null,
+        });
+      },
 
       setDashboards: (dashboards) => {
         const current = get().activeDashboard;
@@ -83,11 +116,11 @@ export const useDashboardStore = create<DashboardState>()(
             dashboards.find((d) => d.isDefault) ??
             dashboards[0])
           : (dashboards.find((d) => d.isDefault) ?? dashboards[0]);
-        set({ dashboards, activeDashboard: active ?? null });
+        set({ dashboards, activeDashboard: active ?? null, past: [], future: [] });
       },
 
       setActiveDashboard: (dashboard) => {
-        set({ activeDashboard: dashboard, selectedBlockId: null });
+        set({ activeDashboard: dashboard, selectedBlockId: null, past: [], future: [] });
       },
 
       addBlock: (componentType) => {
@@ -122,7 +155,11 @@ export const useDashboardStore = create<DashboardState>()(
           sortOrder: sortOrderFor(bottom, 0),
         };
 
-        set({ activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] } });
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       removeBlock: (id) => {
@@ -133,6 +170,8 @@ export const useDashboardStore = create<DashboardState>()(
             ...dashboard,
             blocks: dashboard.blocks.filter((b) => b.id !== id),
           },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
           ...(get().selectedBlockId === id ? { selectedBlockId: null } : {}),
         });
       },
@@ -151,28 +190,44 @@ export const useDashboardStore = create<DashboardState>()(
             sortOrder: sortOrderFor(item.y, item.x),
           };
         });
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       updateBlockTitle: (id, title) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, title } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       updateBlockSlots: (id, slots) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, slots } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       updateBlockOptions: (id, options) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, options } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       toggleEditMode: () => {

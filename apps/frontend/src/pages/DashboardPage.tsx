@@ -44,6 +44,8 @@ export function DashboardPage() {
 
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
+  const undo = useDashboardStore((s) => s.undo);
+  const redo = useDashboardStore((s) => s.redo);
   const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -64,6 +66,34 @@ export function DashboardPage() {
   useEffect(() => {
     if (!isEditMode) selectBlock(null);
   }, [isEditMode, selectBlock]);
+
+  /** Undo/redo keyboard shortcuts (edit mode; ignored while typing in a field). */
+  useEffect(() => {
+    if (!isEditMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((k === 'z' && e.shiftKey) || k === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isEditMode, undo, redo]);
 
   /** Adds a block of the chosen component type and selects it for editing. */
   const handleAddBlock = (descriptor: ComponentDescriptor) => {
