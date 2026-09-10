@@ -13,10 +13,11 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { BlockGrid } from '@/components/design/BlockGrid';
-import { BlockInspector } from '@/components/design/BlockInspector';
 import { PageShareControls } from '@/components/design/PageShareControls';
 import { listComponentDescriptors } from '@/components/design/registry';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useDashboardStore } from '@/storage/dashboard.store';
+import { useUIStore } from '@/storage/ui.store';
 import type { ComponentDescriptor } from '@/types';
 // Side-effect: ensure components are registered before listing them.
 import '@/components/design/components';
@@ -34,9 +35,6 @@ export function DashboardPage() {
     addBlock,
     removeBlock,
     updateBlockLayout,
-    updateBlockTitle,
-    updateBlockSlots,
-    updateBlockOptions,
     createDashboard,
     deleteDashboard: deleteDashboardMutation,
     updateDashboard: updateDashboardMutation,
@@ -44,9 +42,11 @@ export function DashboardPage() {
     isCreating,
   } = useDashboard();
 
+  const selectBlock = useDashboardStore((s) => s.selectBlock);
+  const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddBlock, setShowAddBlock] = useState(false);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
 
@@ -58,15 +58,11 @@ export function DashboardPage() {
   }, [dashboards, setDashboards]);
 
   const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
-  const selectedBlock = useMemo(
-    () => blocks.find((b) => b.id === selectedBlockId) ?? null,
-    [blocks, selectedBlockId],
-  );
 
-  /** Leaving edit mode closes the inspector. */
+  /** Leaving edit mode clears the selection (Inspector shows a placeholder). */
   useEffect(() => {
-    if (!isEditMode) setSelectedBlockId(null);
-  }, [isEditMode]);
+    if (!isEditMode) selectBlock(null);
+  }, [isEditMode, selectBlock]);
 
   /** Adds a block of the chosen component type and selects it for editing. */
   const handleAddBlock = (descriptor: ComponentDescriptor) => {
@@ -302,41 +298,16 @@ export function DashboardPage() {
           className="h-[50vh]"
         />
       ) : (
-        <div className="flex gap-4">
-          <div className="min-w-0 flex-1">
-            <BlockGrid
-              blocks={blocks}
-              editing={isEditMode}
-              onLayoutChange={updateBlockLayout}
-              onRemoveBlock={(id) => {
-                removeBlock(id);
-                if (selectedBlockId === id) setSelectedBlockId(null);
-              }}
-              onConfigureBlock={setSelectedBlockId}
-            />
-          </div>
-          <AnimatePresence>
-            {isEditMode && selectedBlock && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 320 }}
-                exit={{ opacity: 0, width: 0 }}
-                className="shrink-0 overflow-hidden"
-                style={{ height: 'calc(100vh - 220px)' }}
-              >
-                <div className="w-80 h-full">
-                  <BlockInspector
-                    block={selectedBlock}
-                    onTitleChange={(title) => updateBlockTitle(selectedBlock.id, title)}
-                    onSlotsChange={(slots) => updateBlockSlots(selectedBlock.id, slots)}
-                    onOptionsChange={(options) => updateBlockOptions(selectedBlock.id, options)}
-                    onClose={() => setSelectedBlockId(null)}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <BlockGrid
+          blocks={blocks}
+          editing={isEditMode}
+          onLayoutChange={updateBlockLayout}
+          onRemoveBlock={removeBlock}
+          onConfigureBlock={(id) => {
+            selectBlock(id);
+            setInspectorOpen(true);
+          }}
+        />
       )}
 
       {/* Create page modal */}

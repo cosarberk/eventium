@@ -13,6 +13,7 @@ interface UIState {
   inspectorOpen: boolean;
   inspectorWidth: number;
   toggleInspector: () => void;
+  setInspectorOpen: (open: boolean) => void;
   setInspectorWidth: (px: number) => void;
 
   /** Mobile nav drawer. */
@@ -28,6 +29,7 @@ export const useUIStore = create<UIState>((set) => ({
   inspectorOpen: true,
   inspectorWidth: 300,
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
+  setInspectorOpen: (open) => set({ inspectorOpen: open }),
   setInspectorWidth: (px) => set({ inspectorWidth: Math.max(240, Math.min(560, px)) }),
 
   mobileNavOpen: false,

@@ -38,7 +38,11 @@ interface DashboardState {
   dashboards: Dashboard[];
   /** Whether the builder is in edit mode. */
   isEditMode: boolean;
+  /** Currently selected block id (drives the Inspector dock). */
+  selectedBlockId: ID | null;
 
+  /** Selects a block for the inspector (null clears). */
+  selectBlock: (id: ID | null) => void;
   /** Replaces the list of pages and reconciles the active selection. */
   setDashboards: (dashboards: Dashboard[]) => void;
   /** Sets the active page. */
@@ -68,6 +72,9 @@ export const useDashboardStore = create<DashboardState>()(
       activeDashboard: null,
       dashboards: [],
       isEditMode: false,
+      selectedBlockId: null,
+
+      selectBlock: (id) => set({ selectedBlockId: id }),
 
       setDashboards: (dashboards) => {
         const current = get().activeDashboard;
@@ -80,7 +87,7 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       setActiveDashboard: (dashboard) => {
-        set({ activeDashboard: dashboard });
+        set({ activeDashboard: dashboard, selectedBlockId: null });
       },
 
       addBlock: (componentType) => {
@@ -126,6 +133,7 @@ export const useDashboardStore = create<DashboardState>()(
             ...dashboard,
             blocks: dashboard.blocks.filter((b) => b.id !== id),
           },
+          ...(get().selectedBlockId === id ? { selectedBlockId: null } : {}),
         });
       },
 
