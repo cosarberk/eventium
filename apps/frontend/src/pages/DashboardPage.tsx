@@ -47,6 +47,8 @@ export function DashboardPage() {
   const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
   const undo = useDashboardStore((s) => s.undo);
   const redo = useDashboardStore((s) => s.redo);
+  const canUndo = useDashboardStore((s) => s.past.length > 0);
+  const canRedo = useDashboardStore((s) => s.future.length > 0);
   const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -254,6 +256,42 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           {isEditMode && (
             <>
+              <button
+                type="button"
+                onClick={undo}
+                disabled={!canUndo}
+                title="Geri al (⌘Z)"
+                aria-label="Geri al"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M6 4L3 7l3 3M3 7h7a3 3 0 010 6H8"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={!canRedo}
+                title="Yinele (⌘⇧Z)"
+                aria-label="Yinele"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M10 4l3 3-3 3M13 7H6a3 3 0 000 6h2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
               <button
                 type="button"
                 onClick={() => setShowAddBlock(true)}
