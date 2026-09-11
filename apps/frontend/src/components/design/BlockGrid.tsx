@@ -11,6 +11,7 @@ import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout';
 import { BlockRenderer } from '@/components/design/BlockRenderer';
 import { blocksToLayout, GRID_COLS, layoutRowCount } from '@/components/panels/layout';
 import type { GridItem } from '@/storage/dashboard.store';
+import type { LayoutMode } from '@/studio/project-types';
 import type { DashboardBlock } from '@/types';
 // Side-effect: registers all component renderers into the design registry.
 import '@/components/design/components';
@@ -45,7 +46,22 @@ export interface BlockGridProps {
   selectedId?: string | null;
   /** Select a block by id when clicked (builder only). */
   onSelectBlock?: (id: string) => void;
+  /**
+   * Canvas layout behaviour. `grid` packs vertically (dashboards); `free` lets
+   * blocks stay exactly where dropped/moved and overlap (sites/tools); `flow`
+   * behaves like grid for now. Drives compaction/overlap only — the stored
+   * position model is identical, so the live/broadcast views are unaffected.
+   */
+  layoutMode?: LayoutMode;
+  /**
+   * Called when a component is dragged from the palette and dropped on the
+   * canvas, with its type and the grid cell it landed on (builder only).
+   */
+  onExternalDrop?: (componentType: string, at: { x: number; y: number }) => void;
 }
+
+/** Placeholder shown while dragging a palette item over the canvas. */
+const DROPPING_ITEM = { i: '__dropping__', w: 4, h: 4 };
 
 /**
  * Renders the page grid. In live mode the row height is derived from the
@@ -61,6 +77,8 @@ export function BlockGrid({
   onConfigureBlock,
   selectedId,
   onSelectBlock,
+  layoutMode = 'grid',
+  onExternalDrop,
 }: BlockGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -93,10 +111,22 @@ export function BlockGrid({
     onLayoutChange?.(next.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
   };
 
+  const droppable = editing && Boolean(onExternalDrop);
+  /** Read the dragged component type from the drop event and place it. */
+  const handleDrop = (_layout: Layout[], item: Layout, e: Event) => {
+    const type = (e as DragEvent).dataTransfer?.getData('text/plain');
+    if (type && onExternalDrop) onExternalDrop(type, { x: item.x, y: item.y });
+  };
+
+  // `free` keeps blocks where placed (no auto-pack) and allows overlap — the
+  // desktop-canvas feel; other modes pack vertically. Live view never edits.
+  const free = layoutMode === 'free';
+
   return (
     <div ref={containerRef} className={isLive ? 'h-full w-full overflow-hidden' : undefined}>
       <Grid
         className={isLive ? 'h-full' : '-mx-1'}
+        style={!isLive && editing ? { minHeight: 420 } : undefined}
         layout={layout}
         cols={GRID_COLS}
         rowHeight={rowHeight}
@@ -105,7 +135,11 @@ export function BlockGrid({
         isDraggable={editing}
         isResizable={editing}
         draggableHandle={DRAG_HANDLE}
-        compactType="vertical"
+        compactType={free ? null : 'vertical'}
+        allowOverlap={free}
+        isDroppable={droppable}
+        droppingItem={DROPPING_ITEM}
+        onDrop={droppable ? handleDrop : undefined}
         onLayoutChange={handleLayoutChange}
       >
         {blocks.map((block) => (

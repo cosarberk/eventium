@@ -54,8 +54,12 @@ interface DashboardState {
   setDashboards: (dashboards: Dashboard[]) => void;
   /** Sets the active page. */
   setActiveDashboard: (dashboard: Dashboard) => void;
-  /** Adds a new block of the given component type at the bottom of the grid. */
-  addBlock: (componentType: string) => void;
+  /**
+   * Adds a new block of the given component type. Without `at` it lands on a
+   * fresh row below everything; with `at` it lands at that grid cell (used when
+   * a component is dragged from the palette and dropped on the canvas).
+   */
+  addBlock: (componentType: string, at?: { x: number; y: number }) => void;
   /** Adds a fully-formed block (pre-filled slots/options/title) and selects it. */
   addBlockWithSlots: (
     componentType: string,
@@ -130,7 +134,7 @@ export const useDashboardStore = create<DashboardState>()(
         set({ activeDashboard: dashboard, selectedBlockId: null, past: [], future: [] });
       },
 
-      addBlock: (componentType) => {
+      addBlock: (componentType, at) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
 
@@ -138,11 +142,14 @@ export const useDashboardStore = create<DashboardState>()(
         const w = descriptor?.defaultWidth ?? 6;
         const h = descriptor?.defaultHeight ?? 4;
 
-        // Place the new block on a fresh row below everything else.
+        // Drop position when dragged from the palette; otherwise a fresh row
+        // below everything else.
         const bottom = dashboard.blocks.reduce(
           (max, b) => Math.max(max, b.position.y + b.size.h),
           0,
         );
+        const x = at ? Math.max(0, Math.min(at.x, 12 - Math.min(w, 12))) : 0;
+        const y = at ? Math.max(0, at.y) : bottom;
 
         // Pre-seed a slot entry per descriptor slot so the inspector and renderers
         // always have a stable key set to work with.
@@ -157,15 +164,16 @@ export const useDashboardStore = create<DashboardState>()(
           title: descriptor?.label ?? componentType,
           slots,
           options: {},
-          position: { x: 0, y: bottom },
+          position: { x, y },
           size: { w, h },
-          sortOrder: sortOrderFor(bottom, 0),
+          sortOrder: sortOrderFor(y, x),
         };
 
         set({
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          selectedBlockId: block.id,
         });
       },
 

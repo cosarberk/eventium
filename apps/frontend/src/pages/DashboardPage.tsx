@@ -1,11 +1,12 @@
 /**
- * @fileoverview Design-layer page builder.
+ * @fileoverview Studio canvas editor.
  *
- * A Grafana-style grid where the user drops generic components (blocks) and binds
- * their slots to cross-source data. Blocks are rendered through the design
- * registry via {@link BlockGrid}, identical to the live/TV views. Selecting a
- * block opens the {@link BlockInspector} to edit its bindings, colors, formats,
- * and options. Layout + content is persisted on save.
+ * The user drags components from the {@link Palette} (focused by the project's
+ * type) onto the canvas, or clicks to append. The canvas honours the project's
+ * layout mode — `free` lets blocks sit anywhere (desktop-app feel), `grid` packs
+ * them. Blocks render through the design registry via {@link BlockGrid},
+ * identical to the live/TV views. Selecting a block opens the
+ * {@link BlockInspector}. Layout, content and variables persist on save.
  */
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
@@ -14,13 +15,14 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { BlockGrid } from '@/components/design/BlockGrid';
 import { PageShareControls } from '@/components/design/PageShareControls';
-import { listComponentDescriptors } from '@/components/design/registry';
 import { VariableBar } from '@/components/design/VariableBar';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
-import type { ComponentDescriptor } from '@/types';
+import { Palette } from '@/studio/Palette';
+import { readProjectTypeId } from '@/studio/project';
+import { getProjectType } from '@/studio/project-types';
 // Side-effect: ensure components are registered before listing them.
 import '@/components/design/components';
 
@@ -34,7 +36,6 @@ export function DashboardPage() {
     setDashboards,
     setActiveDashboard,
     toggleEditMode,
-    addBlock,
     removeBlock,
     updateBlockLayout,
     createDashboard,
@@ -44,6 +45,7 @@ export function DashboardPage() {
     isCreating,
   } = useDashboard();
 
+  const addBlock = useDashboardStore((s) => s.addBlock);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
   const undo = useDashboardStore((s) => s.undo);
@@ -53,9 +55,12 @@ export function DashboardPage() {
   const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAddBlock, setShowAddBlock] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+
+  /** Canvas layout mode from the active project's type (grid/free/flow). */
+  const layoutMode =
+    getProjectType(readProjectTypeId(activeDashboard?.layout))?.layoutMode ?? 'grid';
 
   /** Sync server pages into the store. */
   useEffect(() => {
@@ -101,13 +106,6 @@ export function DashboardPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isEditMode, undo, redo]);
-
-  /** Adds a block of the chosen component type and selects it for editing. */
-  const handleAddBlock = (descriptor: ComponentDescriptor) => {
-    addBlock(descriptor.type);
-    setShowAddBlock(false);
-    toast.success(`${descriptor.label} added`);
-  };
 
   /** Saves the current layout/content and exits edit mode. */
   const handleSave = () => {
@@ -298,21 +296,6 @@ export function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowAddBlock(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-dashed border-[var(--color-border-secondary)] hover:border-brand-500 transition-colors"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path
-                    d="M6 2v8M2 6h8"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                Add Component
-              </button>
-              <button
-                type="button"
                 onClick={handleSave}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
               >
@@ -365,33 +348,47 @@ export function DashboardPage() {
         <VariableBar />
       </div>
 
-      {/* Grid */}
-      {blocks.length === 0 ? (
+      {/* Canvas — palette (edit mode) on the left, drop target on the right */}
+      {!isEditMode && blocks.length === 0 ? (
         <EmptyState
-          title="Empty page"
-          description={
-            isEditMode
-              ? 'Click "Add Component" to get started.'
-              : 'Click "Edit Page" to add components.'
-          }
+          title="Boş sayfa"
+          description='Düzenlemek ve bileşen eklemek için "Edit Page".'
           className="h-[50vh]"
         />
       ) : (
-        <BlockGrid
-          blocks={blocks}
-          editing={isEditMode}
-          selectedId={selectedBlockId}
-          onSelectBlock={(id) => {
-            selectBlock(id);
-            setInspectorOpen(true);
-          }}
-          onLayoutChange={updateBlockLayout}
-          onRemoveBlock={removeBlock}
-          onConfigureBlock={(id) => {
-            selectBlock(id);
-            setInspectorOpen(true);
-          }}
-        />
+        <div className="flex gap-4">
+          {isEditMode && <Palette />}
+          <div className="relative min-w-0 flex-1">
+            <BlockGrid
+              blocks={blocks}
+              editing={isEditMode}
+              layoutMode={layoutMode}
+              selectedId={selectedBlockId}
+              onExternalDrop={(type, at) => {
+                addBlock(type, at);
+                setInspectorOpen(true);
+              }}
+              onSelectBlock={(id) => {
+                selectBlock(id);
+                setInspectorOpen(true);
+              }}
+              onLayoutChange={updateBlockLayout}
+              onRemoveBlock={removeBlock}
+              onConfigureBlock={(id) => {
+                selectBlock(id);
+                setInspectorOpen(true);
+              }}
+            />
+            {isEditMode && blocks.length === 0 && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
+                <span className="text-3xl opacity-40">⬚</span>
+                <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
+                  Soldaki paletten bir bileşeni buraya <b>sürükle-bırak</b> — ya da üstüne tıkla.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Create page modal */}
@@ -412,13 +409,6 @@ export function DashboardPage() {
               )
             }
           />
-        )}
-      </AnimatePresence>
-
-      {/* Add component picker */}
-      <AnimatePresence>
-        {showAddBlock && (
-          <AddBlockModal onClose={() => setShowAddBlock(false)} onAdd={handleAddBlock} />
         )}
       </AnimatePresence>
     </div>
@@ -570,84 +560,6 @@ function CreateDashboardModal({ isCreating, onClose, onCreate }: CreateDashboard
             {isCreating ? 'Creating...' : 'Create'}
           </button>
         </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-interface AddBlockModalProps {
-  onClose: () => void;
-  onAdd: (descriptor: ComponentDescriptor) => void;
-}
-
-/** Component picker: lists every registered component descriptor. */
-function AddBlockModal({ onClose, onAdd }: AddBlockModalProps) {
-  const [search, setSearch] = useState('');
-  const descriptors = useMemo(() => listComponentDescriptors(), []);
-
-  const filtered = descriptors.filter(
-    (d) =>
-      d.label.toLowerCase().includes(search.toLowerCase()) ||
-      d.description.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  return (
-    <ModalShell onClose={onClose} maxWidth="max-w-md">
-      <div className="p-5 border-b border-[var(--color-border-primary)]">
-        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Add Component</h2>
-        <p className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
-          Pick a component, then bind its slots to data.
-        </p>
-      </div>
-      <div className="px-5 pt-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search components..."
-          className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-colors"
-          // biome-ignore lint/a11y/noAutofocus: search is the entry point of the picker
-          autoFocus
-        />
-      </div>
-      <div className="max-h-[340px] overflow-y-auto p-3 space-y-1.5">
-        {descriptors.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-tertiary)] text-center py-6">
-            No components registered.
-          </p>
-        ) : filtered.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-tertiary)] text-center py-6">
-            No matching components
-          </p>
-        ) : (
-          filtered.map((d) => (
-            <button
-              key={d.type}
-              type="button"
-              onClick={() => onAdd(d)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-[var(--color-surface-hover)] transition-colors group"
-            >
-              <span className="text-lg w-8 text-center shrink-0">{d.icon}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-brand-500 transition-colors">
-                  {d.label}
-                </p>
-                <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5 truncate">
-                  {d.description}
-                </p>
-              </div>
-            </button>
-          ))
-        )}
-      </div>
-      <div className="p-3 border-t border-[var(--color-border-primary)] flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] transition-colors"
-        >
-          Cancel
-        </button>
       </div>
     </ModalShell>
   );
