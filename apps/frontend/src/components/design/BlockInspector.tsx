@@ -75,6 +75,8 @@ export function BlockInspector({
   const activeDashboardId = useDashboardStore((s) => s.activeDashboard?.id);
   const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
   const frame = (block.options as { frame?: { x: number; y: number; w: number; h: number } }).frame;
+  const hasAnyValue = Object.values(block.slots).some((s) => s.values.length > 0);
+  const needsData = Boolean(descriptor?.slots.length) && !hasAnyValue;
 
   /** Field labels the click interaction can read from (from bound values). */
   const fieldLabels = Array.from(
@@ -168,6 +170,25 @@ export function BlockInspector({
             className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
           />
         </label>
+
+        {/* Quick data-bind call-to-action */}
+        {needsData && (
+          <div className="rounded-lg border border-brand-500/40 bg-brand-500/5 p-2.5">
+            <p className="text-xs font-semibold text-[var(--color-text-primary)]">
+              Henüz veri bağlı değil
+            </p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
+              Aşağıdaki alanlardan bir kaynak alanı bağla ya da hazır bir sorgu kur.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('eventium:query-builder'))}
+              className="mt-2 rounded-md bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-brand-600"
+            >
+              Query Builder'ı aç
+            </button>
+          </div>
+        )}
 
         {/* Geometry (free-canvas blocks) */}
         {frame && (
