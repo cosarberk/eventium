@@ -137,6 +137,7 @@ export function FreeCanvas({
   const drag = useRef<DragState | null>(null);
 
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const [showHelp, setShowHelp] = useState(false);
 
   // Latest view transform, read by pointer handlers without re-subscribing.
   const view = useRef({ tx, ty, scale });
@@ -719,7 +720,37 @@ export function FreeCanvas({
         >
           Sığdır
         </button>
+        <span className="mx-0.5 h-4 w-px bg-[var(--color-border-primary)]" />
+        <ViewBtn label="Kısayollar" onClick={() => setShowHelp((v) => !v)}>
+          ?
+        </ViewBtn>
       </div>
+
+      {/* Keyboard shortcuts help */}
+      {showHelp && (
+        <div className="absolute bottom-14 right-3 z-30 w-60 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] p-3 text-[11px] shadow-xl">
+          <p className="mb-1.5 font-semibold text-[var(--color-text-primary)]">Kısayollar</p>
+          <ul className="space-y-1 text-[var(--color-text-secondary)]">
+            {[
+              ['Sürükle', 'bileşeni taşı'],
+              ['Alt / orta-tık sürükle', 'kaydır (pan)'],
+              ['⌘/Ctrl + scroll', 'yakınlaş/uzaklaş'],
+              ['Boş alanı sürükle', 'çoklu seç (marquee)'],
+              ['Shift + tık', 'seçime ekle/çıkar'],
+              ['Ok tuşları', 'nudge (Shift = 1px)'],
+              ['Delete', 'seçili sil'],
+              ['⌘/Ctrl + D', 'çoğalt'],
+              ['⌘/Ctrl + C / V', 'kopyala / yapıştır'],
+              ['Çift tık', 'kod / blueprint'],
+            ].map(([k, v]) => (
+              <li key={k} className="flex justify-between gap-2">
+                <span className="font-mono text-[var(--color-text-tertiary)]">{k}</span>
+                <span className="text-right">{v}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {editing && blocks.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
