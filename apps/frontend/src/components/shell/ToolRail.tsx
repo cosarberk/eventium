@@ -33,6 +33,10 @@ export function ToolRail() {
               <span className="absolute left-[-8px] top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-500" />
             )}
             {item.icon}
+            {/* Hover label chip (VS-style) */}
+            <span className="pointer-events-none absolute left-full ml-2 z-50 hidden whitespace-nowrap rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)] shadow-lg group-hover:block">
+              {item.label}
+            </span>
           </Link>
         );
       })}
