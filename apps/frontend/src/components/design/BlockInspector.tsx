@@ -73,6 +73,8 @@ export function BlockInspector({
   const descriptor = getComponent(block.componentType)?.descriptor;
   const dashboards = useDashboardStore((s) => s.dashboards);
   const activeDashboardId = useDashboardStore((s) => s.activeDashboard?.id);
+  const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
+  const frame = (block.options as { frame?: { x: number; y: number; w: number; h: number } }).frame;
 
   /** Field labels the click interaction can read from (from bound values). */
   const fieldLabels = Array.from(
@@ -166,6 +168,31 @@ export function BlockInspector({
             className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
           />
         </label>
+
+        {/* Geometry (free-canvas blocks) */}
+        {frame && (
+          <section className="space-y-1.5">
+            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Geometri</h3>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['x', 'y', 'w', 'h'] as const).map((key) => (
+                <label key={key} className="block">
+                  <span className="mb-0.5 block text-center text-[9px] font-medium uppercase text-[var(--color-text-tertiary)]">
+                    {key}
+                  </span>
+                  <input
+                    type="number"
+                    value={Math.round(frame[key])}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) updateBlockFrame(block.id, { ...frame, [key]: n });
+                    }}
+                    className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-1.5 py-1 text-center text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
 
         {!descriptor && (
           <p className="text-xs text-[var(--color-text-tertiary)]">
