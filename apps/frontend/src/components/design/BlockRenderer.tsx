@@ -51,8 +51,12 @@ function Placeholder({ isLive, children }: { isLive?: boolean; children: ReactNo
   );
 }
 
-/** Resolves and renders the inner body of a block (no shell). */
-function BlockBody({
+/**
+ * Resolves a block's bindings and renders its component body (no shell). Exported
+ * so alternative canvases (e.g. the free-canvas viewport) render components
+ * identically to the grid.
+ */
+export function BlockContent({
   block,
   isLive,
   interactive,
@@ -135,7 +139,7 @@ export function BlockRenderer({
   onOpenEditor,
   freeDrag,
 }: BlockRendererProps): ReactNode {
-  const body = <BlockBody block={block} isLive={isLive} interactive={!editing} />;
+  const body = <BlockContent block={block} isLive={isLive} interactive={!editing} />;
 
   if (isLive) {
     return <LiveShell title={block.title}>{body}</LiveShell>;

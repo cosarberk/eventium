@@ -77,6 +77,10 @@ interface DashboardState {
   updateBlockSlots: (id: ID, slots: Record<string, BlockSlot>) => void;
   /** Replaces a block's static component options. */
   updateBlockOptions: (id: ID, options: Record<string, unknown>) => void;
+  /** Sets a block's free-canvas frame (absolute px geometry) in its options. */
+  updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
+  /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
+  addBlockWithFrame: (componentType: string, at: { x: number; y: number }) => void;
   /** Toggles edit mode. */
   toggleEditMode: () => void;
   /** Sets edit mode explicitly. */
@@ -266,6 +270,49 @@ export const useDashboardStore = create<DashboardState>()(
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, options } : b));
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
+      },
+
+      addBlockWithFrame: (componentType, at) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(componentType)?.descriptor;
+        const w = (descriptor?.defaultWidth ?? 4) * 80;
+        const h = (descriptor?.defaultHeight ?? 3) * 60;
+        const slots: Record<string, BlockSlot> = {};
+        for (const slot of descriptor?.slots ?? []) slots[slot.key] = { values: [] };
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType,
+          title: descriptor?.label ?? componentType,
+          slots,
+          options: { frame: { x: at.x, y: at.y, w, h } },
+          position: { x: 0, y: bottom },
+          size: { w: descriptor?.defaultWidth ?? 4, h: descriptor?.defaultHeight ?? 3 },
+          sortOrder: sortOrderFor(bottom, 0),
+        };
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          selectedBlockId: block.id,
+        });
+      },
+
+      updateBlockFrame: (id, frame) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const blocks = dashboard.blocks.map((b) =>
+          b.id === id ? { ...b, options: { ...b.options, frame } } : b,
+        );
         set({
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),

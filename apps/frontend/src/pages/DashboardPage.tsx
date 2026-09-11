@@ -20,6 +20,7 @@ import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
 import { ComponentEditorPane } from '@/studio/ComponentEditorPane';
+import { FreeCanvas } from '@/studio/FreeCanvas';
 import { Palette } from '@/studio/Palette';
 import { readProjectTypeId } from '@/studio/project';
 import { getProjectType } from '@/studio/project-types';
@@ -46,6 +47,7 @@ export function DashboardPage() {
   } = useDashboard();
 
   const addBlock = useDashboardStore((s) => s.addBlock);
+  const addBlockWithFrame = useDashboardStore((s) => s.addBlockWithFrame);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
   const undo = useDashboardStore((s) => s.undo);
@@ -382,47 +384,68 @@ export function DashboardPage() {
               />
             </div>
           ) : (
-            /* Canvas view: palette + artboard */
+            /* Canvas view: palette + surface (free viewport or grid artboard) */
             <div className="flex gap-4">
               {isEditMode && <Palette />}
-              <div
-                className={`relative min-w-0 flex-1 rounded-xl transition-colors ${
-                  isEditMode
-                    ? 'bg-[var(--color-bg-secondary)] ring-1 ring-inset ring-[var(--color-border-primary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]'
-                    : ''
-                }`}
-              >
-                <BlockGrid
-                  blocks={blocks}
-                  editing={isEditMode}
-                  layoutMode={layoutMode}
-                  selectedId={selectedBlockId}
-                  onExternalDrop={(type, at) => {
-                    addBlock(type, at);
-                    setInspectorOpen(true);
-                  }}
-                  onSelectBlock={(id) => {
-                    selectBlock(id);
-                    setInspectorOpen(true);
-                  }}
-                  onOpenBlockEditor={(id) => {
-                    selectBlock(id);
-                    openEditor(id);
-                  }}
-                  onLayoutChange={updateBlockLayout}
-                  onRemoveBlock={removeBlock}
-                  onConfigureBlock={(id) => {
-                    selectBlock(id);
-                    setInspectorOpen(true);
-                  }}
-                />
-                {isEditMode && blocks.length === 0 && (
-                  <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
-                    <span className="text-3xl opacity-40">⬚</span>
-                    <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
-                      Soldaki paletten bir bileşeni buraya <b>sürükle-bırak</b>. Eklediğine{' '}
-                      <b>çift tıkla</b> → kod/blueprint sekmesi açılır.
-                    </p>
+              <div className="min-w-0 flex-1">
+                {layoutMode === 'free' ? (
+                  <FreeCanvas
+                    blocks={blocks}
+                    editing={isEditMode}
+                    selectedId={selectedBlockId}
+                    onSelect={(id) => {
+                      selectBlock(id);
+                      if (id) setInspectorOpen(true);
+                    }}
+                    onOpenEditor={(id) => {
+                      selectBlock(id);
+                      openEditor(id);
+                    }}
+                    onRemove={removeBlock}
+                    onConfigure={(id) => {
+                      selectBlock(id);
+                      setInspectorOpen(true);
+                    }}
+                    onAddAt={(type, x, y) => {
+                      addBlockWithFrame(type, { x, y });
+                      setInspectorOpen(true);
+                    }}
+                  />
+                ) : (
+                  <div className="relative rounded-xl bg-[var(--color-bg-secondary)] p-2 ring-1 ring-inset ring-[var(--color-border-primary)] [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
+                    <BlockGrid
+                      blocks={blocks}
+                      editing={isEditMode}
+                      layoutMode={layoutMode}
+                      selectedId={selectedBlockId}
+                      onExternalDrop={(type, at) => {
+                        addBlock(type, at);
+                        setInspectorOpen(true);
+                      }}
+                      onSelectBlock={(id) => {
+                        selectBlock(id);
+                        setInspectorOpen(true);
+                      }}
+                      onOpenBlockEditor={(id) => {
+                        selectBlock(id);
+                        openEditor(id);
+                      }}
+                      onLayoutChange={updateBlockLayout}
+                      onRemoveBlock={removeBlock}
+                      onConfigureBlock={(id) => {
+                        selectBlock(id);
+                        setInspectorOpen(true);
+                      }}
+                    />
+                    {isEditMode && blocks.length === 0 && (
+                      <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
+                        <span className="text-3xl opacity-40">⬚</span>
+                        <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
+                          Paletten bir bileşeni buraya <b>sürükle-bırak</b>. Çift tık →
+                          kod/blueprint.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
