@@ -134,7 +134,10 @@ export function BlockGrid({
         containerPadding={[isLive ? margin : 4, isLive ? margin : 4]}
         isDraggable={editing}
         isResizable={editing}
-        draggableHandle={DRAG_HANDLE}
+        // Free canvas: grab the whole card to move it (desktop feel); grid mode:
+        // only the drag handle. Interactive elements never start a drag.
+        draggableHandle={free ? undefined : DRAG_HANDLE}
+        draggableCancel=".eventium-no-drag, button, input, textarea, select, a"
         compactType={free ? null : 'vertical'}
         allowOverlap={free}
         isDroppable={droppable}
@@ -148,6 +151,7 @@ export function BlockGrid({
               block={block}
               isLive={isLive}
               editing={editing}
+              freeDrag={free && editing}
               selected={editing && selectedId === block.id}
               onSelect={editing && onSelectBlock ? () => onSelectBlock(block.id) : undefined}
               onRemove={editing && onRemoveBlock ? () => onRemoveBlock(block.id) : undefined}

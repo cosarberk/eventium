@@ -32,6 +32,8 @@ export interface BlockRendererProps {
   selected?: boolean;
   /** Select handler when the panel is clicked (builder). */
   onSelect?: () => void;
+  /** Free-canvas mode: the whole card is the drag handle (hide the grip). */
+  freeDrag?: boolean;
 }
 
 /** A centered, muted placeholder used for empty/error/unknown states. */
@@ -128,6 +130,7 @@ export function BlockRenderer({
   onConfigure,
   selected,
   onSelect,
+  freeDrag,
 }: BlockRendererProps): ReactNode {
   const body = <BlockBody block={block} isLive={isLive} interactive={!editing} />;
 
@@ -139,6 +142,7 @@ export function BlockRenderer({
     <PanelWrapper
       title={block.title}
       editing={editing}
+      freeDrag={freeDrag}
       onRemove={onRemove}
       onConfigure={onConfigure}
       selected={selected}

@@ -15,7 +15,6 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { BlockGrid } from '@/components/design/BlockGrid';
 import { PageShareControls } from '@/components/design/PageShareControls';
-import { VariableBar } from '@/components/design/VariableBar';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
@@ -343,11 +342,6 @@ export function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Runtime variables */}
-      <div className="mb-4">
-        <VariableBar />
-      </div>
-
       {/* Canvas — palette (edit mode) on the left, drop target on the right */}
       {!isEditMode && blocks.length === 0 ? (
         <EmptyState
@@ -358,7 +352,13 @@ export function DashboardPage() {
       ) : (
         <div className="flex gap-4">
           {isEditMode && <Palette />}
-          <div className="relative min-w-0 flex-1">
+          <div
+            className={`relative min-w-0 flex-1 rounded-xl transition-colors ${
+              isEditMode
+                ? 'bg-[var(--color-bg-secondary)] ring-1 ring-inset ring-[var(--color-border-primary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]'
+                : ''
+            }`}
+          >
             <BlockGrid
               blocks={blocks}
               editing={isEditMode}

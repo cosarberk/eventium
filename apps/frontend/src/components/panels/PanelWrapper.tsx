@@ -26,6 +26,8 @@ interface PanelWrapperProps {
   selected?: boolean;
   /** Called when the panel is clicked to select it (builder). */
   onSelect?: () => void;
+  /** Free-canvas mode: the whole card drags, so hide the grip + show move cursor. */
+  freeDrag?: boolean;
   /** Additional CSS class names. */
   className?: string;
 }
@@ -65,6 +67,7 @@ export function PanelWrapper({
   children,
   selected = false,
   onSelect,
+  freeDrag = false,
   className = '',
 }: PanelWrapperProps) {
   return (
@@ -76,11 +79,11 @@ export function PanelWrapper({
         selected
           ? 'border-brand-500 ring-2 ring-brand-500/50'
           : 'border-[var(--color-border-primary)]'
-      } ${className}`}
+      } ${freeDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${className}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border-primary)] shrink-0">
-        {editing && (
+        {editing && !freeDrag && (
           <span
             className={`${DRAG_HANDLE_CLASS} shrink-0 cursor-grab active:cursor-grabbing text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors`}
             aria-label="Drag to move"

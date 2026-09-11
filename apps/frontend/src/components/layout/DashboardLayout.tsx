@@ -18,6 +18,7 @@ import { StatusBar } from '@/components/shell/StatusBar';
 import { TabStrip } from '@/components/shell/TabStrip';
 import { ToolRail } from '@/components/shell/ToolRail';
 import { CommandPalette } from '@/components/ui/CommandPalette';
+import { WorkspaceDock } from '@/studio/WorkspaceDock';
 
 /** The full authenticated workspace. */
 export function DashboardLayout() {
@@ -35,6 +36,7 @@ export function DashboardLayout() {
               <Outlet />
             </div>
           </div>
+          <WorkspaceDock />
         </main>
 
         <Inspector />
