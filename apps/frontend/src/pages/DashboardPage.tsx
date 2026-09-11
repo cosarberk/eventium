@@ -19,6 +19,7 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
+import { ComponentEditorPane } from '@/studio/ComponentEditorPane';
 import { Palette } from '@/studio/Palette';
 import { readProjectTypeId } from '@/studio/project';
 import { getProjectType } from '@/studio/project-types';
@@ -56,6 +57,8 @@ export function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  /** Component whose code/blueprint editor pane is open (double-click). */
+  const [editorBlockId, setEditorBlockId] = useState<string | null>(null);
 
   /** Canvas layout mode from the active project's type (grid/free/flow). */
   const layoutMode =
@@ -72,10 +75,14 @@ export function DashboardPage() {
   useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
+  const editorBlock = editorBlockId ? (blocks.find((b) => b.id === editorBlockId) ?? null) : null;
 
-  /** Leaving edit mode clears the selection (Inspector shows a placeholder). */
+  /** Leaving edit mode clears the selection + closes the editor pane. */
   useEffect(() => {
-    if (!isEditMode) selectBlock(null);
+    if (!isEditMode) {
+      selectBlock(null);
+      setEditorBlockId(null);
+    }
   }, [isEditMode, selectBlock]);
 
   /** Undo/redo keyboard shortcuts (edit mode; ignored while typing in a field). */
@@ -372,6 +379,10 @@ export function DashboardPage() {
                 selectBlock(id);
                 setInspectorOpen(true);
               }}
+              onOpenBlockEditor={(id) => {
+                selectBlock(id);
+                setEditorBlockId(id);
+              }}
               onLayoutChange={updateBlockLayout}
               onRemoveBlock={removeBlock}
               onConfigureBlock={(id) => {
@@ -384,10 +395,16 @@ export function DashboardPage() {
                 <span className="text-3xl opacity-40">⬚</span>
                 <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
                   Soldaki paletten bir bileşeni buraya <b>sürükle-bırak</b> — ya da üstüne tıkla.
+                  Eklediğin bileşene <b>çift tıkla</b> → kod/blueprint açılır.
                 </p>
               </div>
             )}
           </div>
+
+          {/* Split editor pane — opens on double-clicking a component */}
+          {isEditMode && editorBlock && (
+            <ComponentEditorPane block={editorBlock} onClose={() => setEditorBlockId(null)} />
+          )}
         </div>
       )}
 

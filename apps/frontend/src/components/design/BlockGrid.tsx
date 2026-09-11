@@ -46,6 +46,8 @@ export interface BlockGridProps {
   selectedId?: string | null;
   /** Select a block by id when clicked (builder only). */
   onSelectBlock?: (id: string) => void;
+  /** Open a block's code/logic editor (double-click / toolbar; builder only). */
+  onOpenBlockEditor?: (id: string) => void;
   /**
    * Canvas layout behaviour. `grid` packs vertically (dashboards); `free` lets
    * blocks stay exactly where dropped/moved and overlap (sites/tools); `flow`
@@ -77,6 +79,7 @@ export function BlockGrid({
   onConfigureBlock,
   selectedId,
   onSelectBlock,
+  onOpenBlockEditor,
   layoutMode = 'grid',
   onExternalDrop,
 }: BlockGridProps) {
@@ -154,6 +157,9 @@ export function BlockGrid({
               freeDrag={free && editing}
               selected={editing && selectedId === block.id}
               onSelect={editing && onSelectBlock ? () => onSelectBlock(block.id) : undefined}
+              onOpenEditor={
+                editing && onOpenBlockEditor ? () => onOpenBlockEditor(block.id) : undefined
+              }
               onRemove={editing && onRemoveBlock ? () => onRemoveBlock(block.id) : undefined}
               onConfigure={
                 editing && onConfigureBlock ? () => onConfigureBlock(block.id) : undefined

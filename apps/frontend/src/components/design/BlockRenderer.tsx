@@ -32,6 +32,8 @@ export interface BlockRendererProps {
   selected?: boolean;
   /** Select handler when the panel is clicked (builder). */
   onSelect?: () => void;
+  /** Opens this block's code/logic editor (toolbar button + double-click). */
+  onOpenEditor?: () => void;
   /** Free-canvas mode: the whole card is the drag handle (hide the grip). */
   freeDrag?: boolean;
 }
@@ -130,6 +132,7 @@ export function BlockRenderer({
   onConfigure,
   selected,
   onSelect,
+  onOpenEditor,
   freeDrag,
 }: BlockRendererProps): ReactNode {
   const body = <BlockBody block={block} isLive={isLive} interactive={!editing} />;
@@ -145,6 +148,7 @@ export function BlockRenderer({
       freeDrag={freeDrag}
       onRemove={onRemove}
       onConfigure={onConfigure}
+      onOpenEditor={onOpenEditor}
       selected={selected}
       onSelect={onSelect}
     >
