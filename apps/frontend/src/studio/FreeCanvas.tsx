@@ -24,6 +24,7 @@ import {
 import { BlockContent } from '@/components/design/BlockRenderer';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
+import { useCanvasStatusStore } from './canvas-status.store';
 
 /** Absolute canvas geometry, in surface pixels. */
 export interface Frame {
@@ -153,6 +154,13 @@ export function FreeCanvas({
     ob.observe(el);
     return () => ob.disconnect();
   }, []);
+
+  // Publish live viewport context to the status bar.
+  const setStatus = useCanvasStatusStore((s) => s.set);
+  useEffect(() => {
+    setStatus({ active: editing, zoom: scale, selected: sel.size, layoutMode: 'free' });
+  }, [editing, scale, sel, setStatus]);
+  useEffect(() => () => setStatus({ active: false }), [setStatus]);
 
   const frameFor = useCallback((b: DashboardBlock): Frame => live[b.id] ?? frameOf(b), [live]);
 
