@@ -81,6 +81,12 @@ interface DashboardState {
   updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
   /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
   addBlockWithFrame: (componentType: string, at: { x: number; y: number }) => void;
+  /**
+   * Clones the given block snapshots as new blocks, offsetting any free-canvas
+   * frame, selecting the last, and returning the new ids. Powers duplicate
+   * (⌘D) and paste (⌘V) on the canvas.
+   */
+  addClones: (snapshots: readonly DashboardBlock[], offset: number) => ID[];
   /** Toggles edit mode. */
   toggleEditMode: () => void;
   /** Sets edit mode explicitly. */
@@ -305,6 +311,32 @@ export const useDashboardStore = create<DashboardState>()(
           future: [],
           selectedBlockId: block.id,
         });
+      },
+
+      addClones: (snapshots, offset) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard || snapshots.length === 0) return [];
+        const clones = snapshots.map((b) => {
+          const fr = (b.options as { frame?: { x: number; y: number; w: number; h: number } })
+            .frame;
+          const options = fr
+            ? { ...b.options, frame: { ...fr, x: fr.x + offset, y: fr.y + offset } }
+            : { ...b.options };
+          return {
+            ...b,
+            id: makeBlockId(),
+            options,
+            position: { x: b.position.x, y: b.position.y + 1 },
+          } as DashboardBlock;
+        });
+        const lastId = clones[clones.length - 1]?.id ?? null;
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, ...clones] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          selectedBlockId: lastId,
+        });
+        return clones.map((c) => c.id);
       },
 
       updateBlockFrame: (id, frame) => {

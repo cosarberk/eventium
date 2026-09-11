@@ -122,6 +122,8 @@ export function FreeCanvas({
 }: FreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
+  const addClones = useDashboardStore((s) => s.addClones);
+  const clipboard = useRef<DashboardBlock[]>([]);
 
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
@@ -443,6 +445,38 @@ export function FreeCanvas({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, sel, blocks, updateBlockFrame, onRemove]);
+
+  // ── Clipboard: duplicate (⌘D), copy (⌘C), paste (⌘V) ──
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'd') {
+        const snaps = blocks.filter((b) => sel.has(b.id));
+        if (snaps.length) {
+          const ids = addClones(snaps, GRID * 2);
+          setSel(new Set(ids));
+          onSelect(ids[ids.length - 1] ?? null);
+        }
+        e.preventDefault();
+      } else if (k === 'c') {
+        clipboard.current = blocks.filter((b) => sel.has(b.id));
+        e.preventDefault();
+      } else if (k === 'v') {
+        if (clipboard.current.length) {
+          const ids = addClones(clipboard.current, GRID * 3);
+          setSel(new Set(ids));
+          onSelect(ids[ids.length - 1] ?? null);
+        }
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing, sel, blocks, addClones, onSelect]);
 
   const mq = marquee
     ? {
