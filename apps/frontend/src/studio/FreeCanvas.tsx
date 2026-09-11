@@ -54,6 +54,21 @@ function frameOf(block: DashboardBlock): Frame {
 
 const round = (n: number) => Math.round(n / GRID) * GRID;
 
+/** Ruler thickness in px. */
+const RULER = 18;
+
+/** Compute ruler ticks (screen positions + surface labels) for one axis. */
+function ticksFor(offset: number, scale: number, length: number): { pos: number; label: number }[] {
+  const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  const step = steps.find((s) => s * scale >= 64) ?? 5000;
+  const startSurface = Math.floor(-offset / scale / step) * step;
+  const ticks: { pos: number; label: number }[] = [];
+  for (let sx = startSurface; sx * scale + offset < length + 40; sx += step) {
+    ticks.push({ pos: sx * scale + offset, label: sx });
+  }
+  return ticks;
+}
+
 /** The eight resize handles. */
 const HANDLES = [
   { id: 'nw', cx: 0, cy: 0, cursor: 'nwse-resize' },
@@ -119,9 +134,22 @@ export function FreeCanvas({
   );
   const drag = useRef<DragState | null>(null);
 
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
   // Latest view transform, read by pointer handlers without re-subscribing.
   const view = useRef({ tx, ty, scale });
   view.current = { tx, ty, scale };
+
+  /** Track the viewport size so the rulers can compute visible ticks. */
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ob = new ResizeObserver(update);
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
 
   const frameFor = useCallback((b: DashboardBlock): Frame => live[b.id] ?? frameOf(b), [live]);
 
@@ -425,6 +453,10 @@ export function FreeCanvas({
       }
     : null;
 
+  // Live geometry readout for a single selection.
+  const readoutBlock = editing && sel.size === 1 ? blocks.find((b) => sel.has(b.id)) : undefined;
+  const readout = readoutBlock ? (live[readoutBlock.id] ?? frameOf(readoutBlock)) : null;
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: pan/marquee surface; block controls provide keyboard access
     <div
@@ -548,6 +580,58 @@ export function FreeCanvas({
           );
         })}
       </div>
+
+      {/* Rulers (edit mode) */}
+      {editing && (
+        <>
+          <div
+            className="pointer-events-none absolute left-0 top-0 z-20 border-b border-r border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]"
+            style={{ width: RULER, height: RULER }}
+          />
+          <div
+            className="pointer-events-none absolute top-0 z-10 overflow-hidden border-b border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95"
+            style={{ left: RULER, right: 0, height: RULER }}
+          >
+            {ticksFor(tx, scale, size.w).map((t) => (
+              <div
+                key={`tx${t.label}`}
+                className="absolute top-0 h-full"
+                style={{ left: t.pos - RULER }}
+              >
+                <span className="absolute left-1 top-0.5 text-[9px] text-[var(--color-text-tertiary)]">
+                  {t.label}
+                </span>
+                <span className="absolute bottom-0 left-0 h-1.5 w-px bg-[var(--color-border-secondary)]" />
+              </div>
+            ))}
+          </div>
+          <div
+            className="pointer-events-none absolute left-0 z-10 overflow-hidden border-r border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95"
+            style={{ top: RULER, bottom: 0, width: RULER }}
+          >
+            {ticksFor(ty, scale, size.h).map((t) => (
+              <div
+                key={`ty${t.label}`}
+                className="absolute left-0 w-full"
+                style={{ top: t.pos - RULER }}
+              >
+                <span className="absolute left-0.5 top-0 text-[8px] leading-none text-[var(--color-text-tertiary)]">
+                  {t.label}
+                </span>
+                <span className="absolute right-0 top-0 h-px w-1.5 bg-[var(--color-border-secondary)]" />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Geometry readout (single selection) */}
+      {readout && (
+        <div className="absolute bottom-3 left-3 z-20 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 px-2.5 py-1.5 font-mono text-[10px] text-[var(--color-text-secondary)] shadow-sm backdrop-blur">
+          X {Math.round(readout.x)} · Y {Math.round(readout.y)} · W {Math.round(readout.w)} · H{' '}
+          {Math.round(readout.h)}
+        </div>
+      )}
 
       {/* Alignment toolbar (multi-select) */}
       {editing && sel.size >= 2 && (
