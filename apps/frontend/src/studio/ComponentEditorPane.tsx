@@ -6,17 +6,17 @@
  * slot — the render code for custom HTML/React panels, or a logic script for
  * others) and a **Blueprint** tab (visual logic). Closing returns to the canvas.
  */
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 
 /** Component types whose `code` option is the actual render code. */
 const CODE_RENDERED = new Set(['custom-html', 'custom-react']);
 
-/** Fire the window event the Blueprint overlay listens for. */
-function openBlueprint() {
-  window.dispatchEvent(new Event('eventium:blueprint'));
-}
+/** Inline blueprint editor, lazy-loaded so React Flow stays out of the main bundle. */
+const BlueprintCanvas = lazy(() =>
+  import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
+);
 
 interface ComponentEditorPaneProps {
   /** The block being edited. */
@@ -109,19 +109,16 @@ export function ComponentEditorPane({ block, onClose }: ComponentEditorPaneProps
           />
         </div>
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <span className="text-3xl">🔗</span>
-          <p className="max-w-xs text-xs text-[var(--color-text-tertiary)]">
-            Görsel mantığı Blueprint editöründe kur: kaynak → transform → bu panel. Çalıştır ve
-            board'a bas.
-          </p>
-          <button
-            type="button"
-            onClick={openBlueprint}
-            className="rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600"
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
+                Blueprint yükleniyor…
+              </div>
+            }
           >
-            Blueprint editörünü aç
-          </button>
+            <BlueprintCanvas />
+          </Suspense>
         </div>
       )}
     </aside>

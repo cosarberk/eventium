@@ -162,7 +162,7 @@ const fieldCls =
 const labelCls =
   'mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]';
 
-function Editor({ onClose }: { onClose: () => void }) {
+function Editor({ onClose }: { onClose?: () => void }) {
   const saved = useBlueprintStore;
   const initial = saved.getState();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
@@ -240,7 +240,7 @@ function Editor({ onClose }: { onClose: () => void }) {
     }
     addBlockWithSlots(spec.componentType, spec.slots, {}, spec.title);
     toast.success("Panel board'a eklendi");
-    onClose();
+    onClose?.();
   };
 
   const doSave = () => {
@@ -544,6 +544,18 @@ function PanelFields({
   );
 }
 
+/**
+ * Reusable blueprint editor surface (React Flow provider + editor). Used both by
+ * the modal and inline inside a component's editor tab.
+ */
+export function BlueprintCanvas({ onClose }: { onClose?: () => void }) {
+  return (
+    <ReactFlowProvider>
+      <Editor onClose={onClose} />
+    </ReactFlowProvider>
+  );
+}
+
 /** The Blueprint modal (default export for lazy loading). */
 export default function BlueprintModal({ onClose }: { onClose: () => void }) {
   return (
@@ -584,9 +596,7 @@ export default function BlueprintModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="flex-1 min-h-0">
-          <ReactFlowProvider>
-            <Editor onClose={onClose} />
-          </ReactFlowProvider>
+          <BlueprintCanvas onClose={onClose} />
         </div>
       </motion.div>
     </div>
