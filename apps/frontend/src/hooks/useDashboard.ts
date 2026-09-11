@@ -44,11 +44,13 @@ export function useDashboard() {
       name,
       blocks,
       isDefault,
+      layout,
     }: {
       name: string;
       blocks?: DashboardBlock[];
       isDefault?: boolean;
-    }) => createDashboard(name, blocks, isDefault),
+      layout?: Record<string, unknown>;
+    }) => createDashboard(name, blocks, isDefault, layout),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dashboardKeys.lists() });
     },

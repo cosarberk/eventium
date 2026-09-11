@@ -18,6 +18,7 @@ import { PluginsPage } from '@/pages/PluginsPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { UsersPage } from '@/pages/UsersPage';
+import { Launcher } from '@/studio/Launcher';
 
 /** Root route — renders child routes via Outlet */
 const rootRoute = createRootRoute({
@@ -51,6 +52,13 @@ const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedLayout,
   path: '/boards',
   component: DashboardPage,
+});
+
+/** Project launcher — OnlyOffice-style "new project" start screen (/new) */
+const launcherRoute = createRoute({
+  getParentRoute: () => authenticatedLayout,
+  path: '/new',
+  component: Launcher,
 });
 
 /** Broadcast links management route (/links) */
@@ -155,6 +163,7 @@ const routeTree = rootRoute.addChildren([
   authenticatedLayout.addChildren([
     homeRoute,
     dashboardRoute,
+    launcherRoute,
     broadcastLinksRoute,
     pluginsRoute,
     settingsRoute,

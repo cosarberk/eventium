@@ -61,11 +61,17 @@ export async function createDashboard(
   name: string,
   blocks: DashboardBlock[] = [],
   isDefault = false,
+  layout?: Record<string, unknown>,
 ): Promise<Dashboard> {
   const gqlBlocks = blocks.map(toBlockInput);
   const result = await urqlClient
     .mutation(CREATE_DASHBOARD, {
-      input: { name, blocks: gqlBlocks.length > 0 ? gqlBlocks : undefined, isDefault },
+      input: {
+        name,
+        blocks: gqlBlocks.length > 0 ? gqlBlocks : undefined,
+        isDefault,
+        ...(layout !== undefined ? { layout } : {}),
+      },
     })
     .toPromise();
   if (result.error) throw new Error(result.error.message);

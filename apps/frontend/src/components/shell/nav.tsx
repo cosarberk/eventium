@@ -27,6 +27,23 @@ function HomeIcon() {
   );
 }
 
+function NewIcon() {
+  return (
+    <svg className={ic} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect
+        x="2.5"
+        y="2.5"
+        width="13"
+        height="13"
+        rx="2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M9 6v6M6 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function DashboardIcon() {
   return (
     <svg className={ic} viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -103,6 +120,7 @@ function SettingsIcon() {
 /** Primary navigation destinations (role-gated). */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Home', icon: <HomeIcon /> },
+  { to: '/new', label: 'Yeni', icon: <NewIcon />, minRole: 'EDITOR' },
   { to: '/boards', label: 'Boards', icon: <DashboardIcon /> },
   { to: '/links', label: 'Linklerim', icon: <LinksIcon />, minRole: 'EDITOR' },
   { to: '/plugins', label: 'Plugins', icon: <PluginsIcon />, minRole: 'EDITOR' },
