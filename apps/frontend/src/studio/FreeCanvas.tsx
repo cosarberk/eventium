@@ -39,7 +39,7 @@ const MIN_W = 48;
 const MIN_H = 36;
 
 /** Read a block's frame, defaulting from its grid position on first use. */
-function frameOf(block: DashboardBlock): Frame {
+export function frameOf(block: DashboardBlock): Frame {
   const f = (block.options as { frame?: Partial<Frame> }).frame;
   if (f && typeof f.x === 'number' && typeof f.y === 'number') {
     return { x: f.x, y: f.y, w: f.w ?? 320, h: f.h ?? 200 };

@@ -7,6 +7,8 @@
  */
 import { AnimatePresence, motion } from 'framer-motion';
 import { BlockGrid } from '@/components/design/BlockGrid';
+import { FreeCanvasView } from '@/studio/FreeCanvasView';
+import { readLayoutMode } from '@/studio/project';
 import type { Dashboard } from '@/types';
 
 interface LivePanelGridProps {
@@ -37,7 +39,11 @@ export function LivePanelGrid({ dashboard }: LivePanelGridProps) {
           transition={{ duration: 0.3 }}
           className="h-full text-white"
         >
-          <BlockGrid blocks={dashboard.blocks} isLive />
+          {readLayoutMode(dashboard.layout) === 'free' ? (
+            <FreeCanvasView blocks={dashboard.blocks} isLive />
+          ) : (
+            <BlockGrid blocks={dashboard.blocks} isLive />
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
