@@ -16,6 +16,7 @@
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -250,6 +251,56 @@ export function FreeCanvas({
     setTy(0);
   };
 
+  /** Zoom + center so all blocks fit the viewport. */
+  const zoomToFit = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || blocks.length === 0) {
+      resetView();
+      return;
+    }
+    const fs = blocks.map(frameOf);
+    const minX = Math.min(...fs.map((f) => f.x));
+    const minY = Math.min(...fs.map((f) => f.y));
+    const maxX = Math.max(...fs.map((f) => f.x + f.w));
+    const maxY = Math.max(...fs.map((f) => f.y + f.h));
+    const pad = 48;
+    const ns = Math.min(
+      2,
+      Math.max(
+        0.2,
+        Math.min(
+          (rect.width - pad * 2) / (maxX - minX || 1),
+          (rect.height - pad * 2) / (maxY - minY || 1),
+        ),
+      ),
+    );
+    setScale(ns);
+    setTx(pad - minX * ns);
+    setTy(pad - minY * ns);
+  };
+
+  // ── Keyboard: nudge (arrows), delete (Del/Backspace) on the selection ──
+  useEffect(() => {
+    if (!editing || !selectedId) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const b = blocks.find((x) => x.id === selectedId);
+      if (!b) return;
+      const f = frameOf(b);
+      const step = e.shiftKey ? 1 : GRID;
+      if (e.key === 'ArrowLeft') updateBlockFrame(selectedId, { ...f, x: f.x - step });
+      else if (e.key === 'ArrowRight') updateBlockFrame(selectedId, { ...f, x: f.x + step });
+      else if (e.key === 'ArrowUp') updateBlockFrame(selectedId, { ...f, y: f.y - step });
+      else if (e.key === 'ArrowDown') updateBlockFrame(selectedId, { ...f, y: f.y + step });
+      else if (e.key === 'Delete' || e.key === 'Backspace') onRemove?.(selectedId);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing, selectedId, blocks, updateBlockFrame, onRemove]);
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom surface; block controls provide keyboard access
     <div
@@ -380,6 +431,15 @@ export function FreeCanvas({
         <ViewBtn label="Yakınlaş" onClick={() => zoomBy(1.2)}>
           +
         </ViewBtn>
+        <span className="mx-0.5 h-4 w-px bg-[var(--color-border-primary)]" />
+        <button
+          type="button"
+          onClick={zoomToFit}
+          title="Sığdır"
+          className="rounded px-1.5 py-1 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+        >
+          Sığdır
+        </button>
       </div>
 
       {editing && blocks.length === 0 && (
