@@ -23,13 +23,13 @@ const descriptor: ComponentDescriptor = {
 
 function render({ data, onInteract }: ComponentRenderProps) {
   const columns = slotValues(data, 'columns');
-  if (columns.length === 0) return <EmptyState label="No columns" />;
+  if (columns.length === 0) return <EmptyState label="Sütun yok" />;
 
   const rowCount = columns.reduce(
     (max, col) => Math.max(max, effectiveList(col.resolved).length),
     0,
   );
-  if (rowCount === 0) return <EmptyState label="No rows" />;
+  if (rowCount === 0) return <EmptyState label="Satır yok" />;
 
   const clickable = Boolean(onInteract);
   /** Builds a `columnLabel -> cell` object for one row, for the interaction. */

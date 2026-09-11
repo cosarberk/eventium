@@ -32,7 +32,7 @@ const descriptor: ComponentDescriptor = {
 
 function render({ data }: ComponentRenderProps) {
   const model = buildChartModel(slotValues(data, 'series'));
-  if (model.rows.length === 0) return <EmptyState label="No data" />;
+  if (model.rows.length === 0) return <EmptyState label="Veri yok" />;
 
   return (
     <div className="h-full w-full p-2">

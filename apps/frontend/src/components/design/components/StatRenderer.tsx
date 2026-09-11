@@ -23,7 +23,7 @@ const descriptor: ComponentDescriptor = {
 
 function render({ data }: ComponentRenderProps) {
   const values = slotValues(data, 'value');
-  if (values.length === 0) return <EmptyState label="No metrics" />;
+  if (values.length === 0) return <EmptyState label="Metrik yok" />;
 
   return (
     <div

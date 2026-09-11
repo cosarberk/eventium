@@ -21,11 +21,11 @@ interface LivePanelGridProps {
  */
 export function LivePanelGrid({ dashboard }: LivePanelGridProps) {
   if (!dashboard) {
-    return <CenteredMessage text="No dashboard selected" />;
+    return <CenteredMessage text="Seçili pano yok" />;
   }
 
   if (dashboard.blocks.length === 0) {
-    return <CenteredMessage text="No blocks configured" />;
+    return <CenteredMessage text="Henüz bileşen yok" />;
   }
 
   return (

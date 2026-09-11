@@ -136,7 +136,7 @@ export function DashboardPage() {
   const handleSave = () => {
     saveLayout();
     toggleEditMode();
-    toast.success('Page saved');
+    toast.success('Sayfa kaydedildi');
   };
 
   /** Begins renaming the active page. */
@@ -153,7 +153,7 @@ export function DashboardPage() {
       { id: activeDashboard.id, input: { name: renameValue.trim() } },
       {
         onSuccess: () => {
-          toast.success('Page renamed');
+          toast.success('Sayfa yeniden adlandırıldı');
           setRenaming(false);
         },
       },
@@ -163,9 +163,9 @@ export function DashboardPage() {
   /** Deletes the active page. */
   const handleDelete = () => {
     if (!activeDashboard) return;
-    if (!window.confirm(`Delete "${activeDashboard.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`"${activeDashboard.name}" silinsin mi? Bu geri alınamaz.`)) return;
     deleteDashboardMutation(activeDashboard.id, {
-      onSuccess: () => toast.success('Page deleted'),
+      onSuccess: () => toast.success('Sayfa silindi'),
     });
   };
 
@@ -191,7 +191,7 @@ export function DashboardPage() {
                   { name, isDefault: true },
                   {
                     onSuccess: () => {
-                      toast.success('Page created');
+                      toast.success('Sayfa oluşturuldu');
                       setShowCreateModal(false);
                     },
                   },
@@ -324,7 +324,7 @@ export function DashboardPage() {
                 onClick={handleSave}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
               >
-                Save Page
+                Kaydet
               </button>
             </>
           )}
@@ -338,7 +338,7 @@ export function DashboardPage() {
                 : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
-            {isEditMode ? 'Done' : 'Edit Page'}
+            {isEditMode ? 'Bitir' : 'Düzenle'}
           </button>
         </div>
       </div>
@@ -347,7 +347,7 @@ export function DashboardPage() {
       {!isEditMode && blocks.length === 0 ? (
         <EmptyState
           title="Boş sayfa"
-          description='Düzenlemek ve bileşen eklemek için "Edit Page".'
+          description='Düzenlemek ve bileşen eklemek için "Düzenle".'
           className="h-[50vh]"
         />
       ) : (
@@ -465,7 +465,7 @@ export function DashboardPage() {
                 { name },
                 {
                   onSuccess: () => {
-                    toast.success('Page created');
+                    toast.success('Sayfa oluşturuldu');
                     setShowCreateModal(false);
                   },
                 },
@@ -594,12 +594,10 @@ function FirstDashboardOnboarding({ onCreate }: { onCreate: () => void }) {
             />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-[var(--color-text-primary)]">
-          Create your first page
-        </h1>
+        <h1 className="text-xl font-bold text-[var(--color-text-primary)]">İlk sayfanı oluştur</h1>
         <p className="text-sm text-[var(--color-text-tertiary)] mt-2 max-w-sm">
-          Pages let you arrange components and bind them to data from any connected source, in
-          real-time.
+          Sayfalar; bileşenleri düzenleyip bağlı kaynaklardan gelen veriye gerçek zamanlı bağlaman
+          içindir.
         </p>
       </div>
       <button
@@ -607,7 +605,7 @@ function FirstDashboardOnboarding({ onCreate }: { onCreate: () => void }) {
         onClick={onCreate}
         className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand-500 text-white hover:bg-brand-600 shadow-md shadow-brand-500/20 transition-all hover:shadow-lg hover:shadow-brand-500/30"
       >
-        Create Page
+        Sayfa Oluştur
       </button>
     </div>
   );
@@ -627,18 +625,16 @@ function CreateDashboardModal({ isCreating, onClose, onCreate }: CreateDashboard
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-sm">
       <div className="p-5">
-        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">New Page</h2>
+        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Yeni Sayfa</h2>
         <div className="mt-4 space-y-1.5">
-          <label className="block text-xs font-medium text-[var(--color-text-secondary)]">
-            Name
-          </label>
+          <label className="block text-xs font-medium text-[var(--color-text-secondary)]">Ad</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && name.trim() && onCreate(name.trim())}
             className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-colors"
-            placeholder="e.g. Release War Room"
+            placeholder="ör. Sürüm Komuta Merkezi"
             // biome-ignore lint/a11y/noAutofocus: primary field of a freshly opened modal
             autoFocus
           />
@@ -649,7 +645,7 @@ function CreateDashboardModal({ isCreating, onClose, onCreate }: CreateDashboard
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] transition-colors"
           >
-            Cancel
+            İptal
           </button>
           <button
             type="button"
@@ -657,7 +653,7 @@ function CreateDashboardModal({ isCreating, onClose, onCreate }: CreateDashboard
             disabled={!name.trim() || isCreating}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
           >
-            {isCreating ? 'Creating...' : 'Create'}
+            {isCreating ? 'Oluşturuluyor…' : 'Oluştur'}
           </button>
         </div>
       </div>

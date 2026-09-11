@@ -138,7 +138,7 @@ export function BlockInspector({
           <h2 className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
             {descriptor?.label ?? block.componentType}
           </h2>
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">Block settings</p>
+          <p className="text-[10px] text-[var(--color-text-tertiary)]">Blok ayarları</p>
         </div>
         <button
           type="button"
@@ -161,7 +161,7 @@ export function BlockInspector({
         {/* Title */}
         <label className="block">
           <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            Title
+            Başlık
           </span>
           <input
             type="text"
@@ -217,7 +217,7 @@ export function BlockInspector({
 
         {!descriptor && (
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            This component type is not registered; its slots cannot be edited.
+            Bu bileşen tipi kayıtlı değil; slot'ları düzenlenemez.
           </p>
         )}
 
@@ -251,7 +251,7 @@ export function BlockInspector({
               </div>
 
               {values.length === 0 && (
-                <p className="text-[11px] text-[var(--color-text-tertiary)]">No values bound.</p>
+                <p className="text-[11px] text-[var(--color-text-tertiary)]">Bağlı değer yok.</p>
               )}
 
               {values.map((value, index) => (
@@ -274,7 +274,7 @@ export function BlockInspector({
         {/* Options */}
         {descriptor?.options && descriptor.options.length > 0 && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Options</h3>
+            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Seçenekler</h3>
             {descriptor.options.map((option) => (
               <OptionControl
                 key={option.key}
@@ -525,12 +525,12 @@ function BoundValueEditor({
       <input
         type="text"
         value={value.label ?? ''}
-        placeholder="Label (defaults to field name)"
+        placeholder="Etiket (varsayılan: alan adı)"
         onChange={(e) => onChange({ label: e.target.value || undefined })}
         className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
       />
 
-      {/* Color rules */}
+      {/* Renk kuralları */}
       <ColorRuleEditor
         rules={value.rules ?? []}
         onChange={(rules) => onChange({ rules: rules.length > 0 ? rules : undefined })}
@@ -559,7 +559,7 @@ function ColorRuleEditor({
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-          Color rules
+          Renk kuralları
         </span>
         <button
           type="button"
