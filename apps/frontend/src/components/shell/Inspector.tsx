@@ -25,7 +25,7 @@ export function Inspector() {
   const updateBlockOptions = useDashboardStore((s) => s.updateBlockOptions);
 
   const selectedBlock = useMemo(
-    () => activeDashboard?.blocks.find((b) => b.id === selectedBlockId) ?? null,
+    () => activeDashboard?.blocks?.find((b) => b.id === selectedBlockId) ?? null,
     [activeDashboard, selectedBlockId],
   );
   const editing = isEditMode && selectedBlock !== null;
