@@ -9,9 +9,11 @@
  */
 import type { ReactNode } from 'react';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { isPanelLevel } from '@/components/design/interactions';
 import { getComponent } from '@/components/design/registry';
 import { PanelWrapper } from '@/components/panels/PanelWrapper';
 import { useBlockData } from '@/hooks/useBlockData';
+import { useInteraction } from '@/hooks/useInteraction';
 import type { DashboardBlock } from '@/types';
 
 /** Props for {@link BlockRenderer}. */
@@ -46,8 +48,18 @@ function Placeholder({ isLive, children }: { isLive?: boolean; children: ReactNo
 }
 
 /** Resolves and renders the inner body of a block (no shell). */
-function BlockBody({ block, isLive }: { block: DashboardBlock; isLive?: boolean }) {
+function BlockBody({
+  block,
+  isLive,
+  interactive,
+}: {
+  block: DashboardBlock;
+  isLive?: boolean;
+  /** When true, the block's drill-down / cross-filter interaction is armed. */
+  interactive?: boolean;
+}) {
   const { data, isLoading, error } = useBlockData(block);
+  const { config, emit } = useInteraction(block, interactive ?? false);
   const entry = getComponent(block.componentType);
 
   if (!entry) {
@@ -71,7 +83,21 @@ function BlockBody({ block, isLive }: { block: DashboardBlock; isLive?: boolean 
     );
   }
 
-  return <>{entry.render({ block, data, isLive })}</>;
+  const body = entry.render({ block, data, isLive, onInteract: config ? emit : undefined });
+
+  // Panel-level interactions (navigate / static value) fire from a body click,
+  // for components that don't expose their own clickable rows.
+  if (config && isPanelLevel(config)) {
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: whole-panel drill-down; keyboard users can use row-level controls
+      // biome-ignore lint/a11y/useKeyWithClickEvents: whole-panel drill-down; keyboard users can use row-level controls
+      <div onClick={() => emit()} className="h-full w-full cursor-pointer" title="Drill-down">
+        {body}
+      </div>
+    );
+  }
+
+  return <>{body}</>;
 }
 
 /** TV/broadcast card shell used in the live view. */
@@ -103,7 +129,7 @@ export function BlockRenderer({
   selected,
   onSelect,
 }: BlockRendererProps): ReactNode {
-  const body = <BlockBody block={block} isLive={isLive} />;
+  const body = <BlockBody block={block} isLive={isLive} interactive={!editing} />;
 
   if (isLive) {
     return <LiveShell title={block.title}>{body}</LiveShell>;

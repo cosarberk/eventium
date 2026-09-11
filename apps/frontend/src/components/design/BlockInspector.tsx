@@ -9,6 +9,7 @@
  * descriptor from the registry.
  */
 import { getComponent } from '@/components/design/registry';
+import { useDashboardStore } from '@/storage/dashboard.store';
 import type {
   BlockSlot,
   BoundValue,
@@ -21,6 +22,7 @@ import type {
   ValueFormat,
 } from '@/types';
 import { BindingPicker } from './BindingPicker';
+import { type BlockInteraction, readInteraction } from './interactions';
 
 /** Props for {@link BlockInspector}. */
 export interface BlockInspectorProps {
@@ -69,6 +71,18 @@ export function BlockInspector({
   onClose,
 }: BlockInspectorProps) {
   const descriptor = getComponent(block.componentType)?.descriptor;
+  const dashboards = useDashboardStore((s) => s.dashboards);
+  const activeDashboardId = useDashboardStore((s) => s.activeDashboard?.id);
+
+  /** Field labels the click interaction can read from (from bound values). */
+  const fieldLabels = Array.from(
+    new Set(
+      Object.values(block.slots)
+        .flatMap((slot) => slot.values)
+        .map((v) => v.label)
+        .filter((l): l is string => Boolean(l)),
+    ),
+  );
 
   /** Immutably replace the values of one slot. */
   const setSlotValues = (slotKey: string, values: BoundValue[]) => {
@@ -223,8 +237,171 @@ export function BlockInspector({
             ))}
           </section>
         )}
+
+        {/* Interaction (drill-down / cross-filter) */}
+        <InteractionEditor
+          interaction={readInteraction(block.options)}
+          fieldLabels={fieldLabels}
+          boards={dashboards.map((d) => ({ id: d.id, name: d.name }))}
+          activeBoardId={activeDashboardId}
+          onChange={(next) => setOption('interaction', next ?? undefined)}
+        />
       </div>
     </aside>
+  );
+}
+
+/**
+ * Editor for a block's click interaction: none, cross-filter (write a runtime
+ * variable), or drill-down (navigate to another board, optionally seeding a
+ * variable from the clicked row).
+ */
+function InteractionEditor({
+  interaction,
+  fieldLabels,
+  boards,
+  activeBoardId,
+  onChange,
+}: {
+  interaction: BlockInteraction | null;
+  fieldLabels: string[];
+  boards: { id: string; name: string }[];
+  activeBoardId?: string;
+  onChange: (next: BlockInteraction | null) => void;
+}) {
+  const action = interaction?.action ?? 'none';
+  const source = interaction?.source ?? 'field';
+
+  /** Merges a patch into the current interaction and persists it. */
+  const patch = (p: Partial<BlockInteraction>) => {
+    onChange({ action: interaction?.action ?? 'set-variable', ...interaction, ...p });
+  };
+
+  const inputCls =
+    'w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40';
+
+  return (
+    <section className="space-y-2 border-t border-[var(--color-border-primary)] pt-4">
+      <div>
+        <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Etkileşim</h3>
+        <p className="text-[10px] text-[var(--color-text-tertiary)]">
+          Tıklayınca değişken ata (cross-filter) veya başka board'a git (drill-down).
+        </p>
+      </div>
+
+      {/* Action */}
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          Tıklama aksiyonu
+        </span>
+        <select
+          value={action}
+          onChange={(e) => {
+            const a = e.target.value;
+            if (a === 'none') return onChange(null);
+            if (a === 'set-variable') return onChange({ action: 'set-variable', source: 'field' });
+            return onChange({ action: 'navigate', boardId: boards[0]?.id, source: 'field' });
+          }}
+          className={inputCls}
+        >
+          <option value="none">Yok</option>
+          <option value="set-variable">Değişken ata (cross-filter)</option>
+          <option value="navigate">Board'a git (drill-down)</option>
+        </select>
+      </label>
+
+      {action !== 'none' && (
+        <>
+          {/* Variable name (required for set-variable, optional seed for navigate) */}
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+              Değişken adı{action === 'navigate' && ' (opsiyonel)'}
+            </span>
+            <input
+              type="text"
+              value={interaction?.variable ?? ''}
+              placeholder="ör. project"
+              onChange={(e) => patch({ variable: e.target.value || undefined })}
+              className={inputCls}
+            />
+          </label>
+
+          {(action === 'set-variable' || interaction?.variable) && (
+            <>
+              {/* Value source */}
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  Değer kaynağı
+                </span>
+                <select
+                  value={source}
+                  onChange={(e) => patch({ source: e.target.value as BlockInteraction['source'] })}
+                  className={inputCls}
+                >
+                  <option value="field">Tıklanan satırın alanı</option>
+                  <option value="static">Sabit değer</option>
+                </select>
+              </label>
+
+              {source === 'field' ? (
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    Alan (sütun etiketi)
+                  </span>
+                  <input
+                    type="text"
+                    list="eventium-field-labels"
+                    value={interaction?.field ?? ''}
+                    placeholder="ör. Project"
+                    onChange={(e) => patch({ field: e.target.value || undefined })}
+                    className={inputCls}
+                  />
+                  <datalist id="eventium-field-labels">
+                    {fieldLabels.map((l) => (
+                      <option key={l} value={l} />
+                    ))}
+                  </datalist>
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    Sabit değer
+                  </span>
+                  <input
+                    type="text"
+                    value={interaction?.value ?? ''}
+                    onChange={(e) => patch({ value: e.target.value })}
+                    className={inputCls}
+                  />
+                </label>
+              )}
+            </>
+          )}
+
+          {/* Navigate target */}
+          {action === 'navigate' && (
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                Hedef board
+              </span>
+              <select
+                value={interaction?.boardId ?? ''}
+                onChange={(e) => patch({ boardId: e.target.value || undefined })}
+                className={inputCls}
+              >
+                <option value="">Seç…</option>
+                {boards.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.id === activeBoardId ? ' (aktif)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
