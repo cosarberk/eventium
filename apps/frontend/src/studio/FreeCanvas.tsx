@@ -3,12 +3,12 @@
  *
  * An infinite, pannable/zoomable canvas (Figma / SolidWorks feel) where blocks
  * are positioned in absolute pixels (`block.options.frame`). Supports:
- *  - pan (drag empty canvas / wheel) and zoom (⌘/Ctrl + wheel, buttons, fit),
- *  - direct-manipulation move with grid + sibling-edge snapping and live
- *    alignment guides,
- *  - 8-handle resize with grid snapping,
- *  - marquee-free click selection, a floating per-block toolbar, and palette
- *    drop at the cursor.
+ *  - pan (Alt/middle-drag or wheel) and zoom (⌘/Ctrl + wheel, buttons, fit),
+ *  - marquee selection on empty-drag, shift-click to add/remove,
+ *  - direct-manipulation move (single: grid + sibling-edge snap with live
+ *    alignment guides; multi: move the whole selection together),
+ *  - 8-handle resize, keyboard nudge/delete, and an alignment toolbar,
+ *  - a floating per-block toolbar and palette drop at the cursor.
  *
  * Geometry lives in `options.frame` so the grid model (and live/broadcast) is
  * untouched; this renderer owns the `free` layout mode.
@@ -44,7 +44,6 @@ function frameOf(block: DashboardBlock): Frame {
   if (f && typeof f.x === 'number' && typeof f.y === 'number') {
     return { x: f.x, y: f.y, w: f.w ?? 320, h: f.h ?? 200 };
   }
-  // Seed from the grid layout so migrated pages don't pile up at the origin.
   return {
     x: 40 + block.position.x * 96,
     y: 40 + block.position.y * 56,
@@ -55,7 +54,7 @@ function frameOf(block: DashboardBlock): Frame {
 
 const round = (n: number) => Math.round(n / GRID) * GRID;
 
-/** The eight resize handles and the frame edges each drives. */
+/** The eight resize handles. */
 const HANDLES = [
   { id: 'nw', cx: 0, cy: 0, cursor: 'nwse-resize' },
   { id: 'n', cx: 0.5, cy: 0, cursor: 'ns-resize' },
@@ -68,14 +67,17 @@ const HANDLES = [
 ] as const;
 
 type HandleId = (typeof HANDLES)[number]['id'];
+type AlignKind = 'left' | 'hcenter' | 'right' | 'top' | 'vmiddle' | 'bottom';
 
 interface DragState {
-  mode: 'move' | 'resize' | 'pan';
+  mode: 'move' | 'resize' | 'pan' | 'marquee';
   id?: string;
+  ids?: string[];
   handle?: HandleId;
   startX: number;
   startY: number;
   startFrame?: Frame;
+  startFrames?: Record<string, Frame>;
   startTx?: number;
   startTy?: number;
 }
@@ -89,7 +91,6 @@ export interface FreeCanvasProps {
   onOpenEditor?: (id: string) => void;
   onRemove?: (id: string) => void;
   onConfigure?: (id: string) => void;
-  /** Add a component (dragged from the palette) at a surface point. */
   onAddAt?: (componentType: string, x: number, y: number) => void;
 }
 
@@ -112,53 +113,84 @@ export function FreeCanvas({
   const [ty, setTy] = useState(0);
   const [live, setLive] = useState<Record<string, Frame>>({});
   const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(
+    null,
+  );
   const drag = useRef<DragState | null>(null);
 
-  const frame = useCallback((b: DashboardBlock): Frame => live[b.id] ?? frameOf(b), [live]);
+  // Latest view transform, read by pointer handlers without re-subscribing.
+  const view = useRef({ tx, ty, scale });
+  view.current = { tx, ty, scale };
 
-  /** Convert a client point to surface (canvas) coordinates. */
-  const toSurface = useCallback(
-    (clientX: number, clientY: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const rx = clientX - (rect?.left ?? 0);
-      const ry = clientY - (rect?.top ?? 0);
-      return { x: (rx - tx) / scale, y: (ry - ty) / scale };
-    },
-    [tx, ty, scale],
-  );
+  const frameFor = useCallback((b: DashboardBlock): Frame => live[b.id] ?? frameOf(b), [live]);
 
-  // ── Pointer move/up (window-level while dragging) ──
+  /** Client point → surface (canvas) coordinates, using the latest transform. */
+  const toSurface = useCallback((clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const { tx: vx, ty: vy, scale: vs } = view.current;
+    return {
+      x: (clientX - (rect?.left ?? 0) - vx) / vs,
+      y: (clientY - (rect?.top ?? 0) - vy) / vs,
+    };
+  }, []);
+
+  /** Keep the local selection in sync when the primary selection changes. */
+  useEffect(() => {
+    if (!selectedId) return;
+    setSel((s) => (s.has(selectedId) ? s : new Set([selectedId])));
+  }, [selectedId]);
+
+  // ── Global pointer move/up while dragging ──
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       const d = drag.current;
       if (!d) return;
-      const dx = (e.clientX - d.startX) / scale;
-      const dy = (e.clientY - d.startY) / scale;
+      const vs = view.current.scale;
+      const dx = (e.clientX - d.startX) / vs;
+      const dy = (e.clientY - d.startY) / vs;
 
       if (d.mode === 'pan') {
         setTx((d.startTx ?? 0) + (e.clientX - d.startX));
         setTy((d.startTy ?? 0) + (e.clientY - d.startY));
         return;
       }
+      if (d.mode === 'marquee') {
+        const p = toSurface(e.clientX, e.clientY);
+        setMarquee((m) => (m ? { ...m, x1: p.x, y1: p.y } : m));
+        return;
+      }
       if (!d.id || !d.startFrame) return;
-      const sf = d.startFrame;
-      const others = blocks.filter((b) => b.id !== d.id).map(frame);
 
       if (d.mode === 'move') {
-        let nx = sf.x + dx;
-        let ny = sf.y + dy;
-        const snapped = snapMove({ ...sf, x: nx, y: ny }, others);
-        nx = snapped.x;
-        ny = snapped.y;
-        setGuides(snapped.guides);
-        setLive((l) => ({ ...l, [d.id as string]: { ...sf, x: nx, y: ny } }));
+        if (d.ids && d.ids.length > 1 && d.startFrames) {
+          const rdx = round(dx);
+          const rdy = round(dy);
+          setGuides({ v: [], h: [] });
+          setLive((l) => {
+            const next = { ...l };
+            for (const id of d.ids as string[]) {
+              const sf = (d.startFrames as Record<string, Frame>)[id];
+              if (sf) next[id] = { ...sf, x: sf.x + rdx, y: sf.y + rdy };
+            }
+            return next;
+          });
+        } else {
+          const sf = d.startFrame;
+          const others = blocks.filter((b) => b.id !== d.id).map(frameFor);
+          const snapped = snapMove({ ...sf, x: sf.x + dx, y: sf.y + dy }, others);
+          setGuides(snapped.guides);
+          setLive((l) => ({ ...l, [d.id as string]: { ...sf, x: snapped.x, y: snapped.y } }));
+        }
       } else if (d.mode === 'resize' && d.handle) {
-        const next = resizeFrame(sf, d.handle, dx, dy);
         setGuides({ v: [], h: [] });
-        setLive((l) => ({ ...l, [d.id as string]: next }));
+        setLive((l) => ({
+          ...l,
+          [d.id as string]: resizeFrame(d.startFrame as Frame, d.handle as HandleId, dx, dy),
+        }));
       }
     },
-    [scale, blocks, frame],
+    [blocks, frameFor, toSurface],
   );
 
   const onPointerUp = useCallback(() => {
@@ -166,16 +198,38 @@ export function FreeCanvas({
     drag.current = null;
     setGuides({ v: [], h: [] });
     document.body.style.cursor = '';
-    if (d?.id) {
-      const f = live[d.id];
-      if (f) updateBlockFrame(d.id, f);
-      setLive((l) => {
-        const next = { ...l };
-        delete next[d.id as string];
-        return next;
+
+    if (d?.mode === 'marquee') {
+      setMarquee((m) => {
+        if (m) {
+          const rx = Math.min(m.x0, m.x1);
+          const ry = Math.min(m.y0, m.y1);
+          const rw = Math.abs(m.x1 - m.x0);
+          const rh = Math.abs(m.y1 - m.y0);
+          if (rw > 3 || rh > 3) {
+            const hit = blocks.filter((b) => {
+              const f = frameOf(b);
+              return f.x < rx + rw && f.x + f.w > rx && f.y < ry + rh && f.y + f.h > ry;
+            });
+            const ids = hit.map((b) => b.id);
+            setSel(new Set(ids));
+            onSelect(ids[0] ?? null);
+          } else {
+            setSel(new Set());
+            onSelect(null);
+          }
+        }
+        return null;
       });
+      return;
     }
-  }, [live, updateBlockFrame]);
+
+    // Commit every frame touched during the drag (single or multi).
+    setLive((l) => {
+      for (const [id, f] of Object.entries(l)) updateBlockFrame(id, f);
+      return {};
+    });
+  }, [blocks, onSelect, updateBlockFrame]);
 
   useLayoutEffect(() => {
     window.addEventListener('pointermove', onPointerMove);
@@ -186,16 +240,14 @@ export function FreeCanvas({
     };
   }, [onPointerMove, onPointerUp]);
 
-  // ── Wheel: pan by default, zoom with ⌘/Ctrl (around the cursor) ──
+  // ── Wheel: pan by default, zoom with ⌘/Ctrl around the cursor ──
   const onWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const rect = containerRef.current?.getBoundingClientRect();
       const px = e.clientX - (rect?.left ?? 0);
       const py = e.clientY - (rect?.top ?? 0);
-      const factor = Math.exp(-e.deltaY * 0.0015);
-      const ns = Math.min(3, Math.max(0.2, scale * factor));
-      // keep the point under the cursor stable
+      const ns = Math.min(3, Math.max(0.2, scale * Math.exp(-e.deltaY * 0.0015)));
       setTx(px - ((px - tx) * ns) / scale);
       setTy(py - ((py - ty) * ns) / scale);
       setScale(ns);
@@ -210,13 +262,37 @@ export function FreeCanvas({
     const target = e.target as HTMLElement;
     if (target.closest('.eventium-no-drag') || target.closest('[data-handle]')) return;
     e.stopPropagation();
+
+    if (e.shiftKey) {
+      // Toggle in the selection; no drag.
+      setSel((s) => {
+        const next = new Set(s);
+        if (next.has(b.id)) next.delete(b.id);
+        else next.add(b.id);
+        onSelect(next.size ? (next.has(b.id) ? b.id : ([...next][0] ?? null)) : null);
+        return next;
+      });
+      return;
+    }
+
+    const ids = sel.has(b.id) && sel.size > 1 ? [...sel] : [b.id];
+    if (ids.length === 1) {
+      setSel(new Set([b.id]));
+    }
     onSelect(b.id);
+    const startFrames: Record<string, Frame> = {};
+    for (const id of ids) {
+      const blk = blocks.find((x) => x.id === id);
+      if (blk) startFrames[id] = frameFor(blk);
+    }
     drag.current = {
       mode: 'move',
       id: b.id,
+      ids,
+      startFrames,
       startX: e.clientX,
       startY: e.clientY,
-      startFrame: frame(b),
+      startFrame: frameFor(b),
     };
     document.body.style.cursor = 'grabbing';
   };
@@ -229,19 +305,30 @@ export function FreeCanvas({
       handle,
       startX: e.clientX,
       startY: e.clientY,
-      startFrame: frame(b),
+      startFrame: frameFor(b),
     };
   };
 
-  const startPan = (e: ReactPointerEvent) => {
-    // Only when clicking empty canvas.
+  const onBackgroundPointerDown = (e: ReactPointerEvent) => {
     if (e.target !== e.currentTarget) return;
-    onSelect(null);
-    if (!editing && e.button !== 1) {
-      // still allow panning in view mode
+    if (e.altKey || e.button === 1) {
+      // Pan.
+      drag.current = {
+        mode: 'pan',
+        startX: e.clientX,
+        startY: e.clientY,
+        startTx: tx,
+        startTy: ty,
+      };
+      document.body.style.cursor = 'grabbing';
+      return;
     }
-    drag.current = { mode: 'pan', startX: e.clientX, startY: e.clientY, startTx: tx, startTy: ty };
-    document.body.style.cursor = 'grabbing';
+    // Marquee select.
+    onSelect(null);
+    setSel(new Set());
+    const p = toSurface(e.clientX, e.clientY);
+    setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+    drag.current = { mode: 'marquee', startX: e.clientX, startY: e.clientY };
   };
 
   const zoomBy = (f: number) => setScale((s) => Math.min(3, Math.max(0.2, s * f)));
@@ -250,14 +337,9 @@ export function FreeCanvas({
     setTx(0);
     setTy(0);
   };
-
-  /** Zoom + center so all blocks fit the viewport. */
   const zoomToFit = () => {
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || blocks.length === 0) {
-      resetView();
-      return;
-    }
+    if (!rect || blocks.length === 0) return resetView();
     const fs = blocks.map(frameOf);
     const minX = Math.min(...fs.map((f) => f.x));
     const minY = Math.min(...fs.map((f) => f.y));
@@ -279,35 +361,77 @@ export function FreeCanvas({
     setTy(pad - minY * ns);
   };
 
-  // ── Keyboard: nudge (arrows), delete (Del/Backspace) on the selection ──
+  /** Align every selected block within the selection's bounding box. */
+  const align = (kind: AlignKind) => {
+    const ids = [...sel];
+    if (ids.length < 2) return;
+    const items = ids
+      .map((id) => blocks.find((b) => b.id === id))
+      .filter((b): b is DashboardBlock => Boolean(b))
+      .map((b) => ({ id: b.id, f: frameOf(b) }));
+    const minX = Math.min(...items.map((o) => o.f.x));
+    const maxX = Math.max(...items.map((o) => o.f.x + o.f.w));
+    const minY = Math.min(...items.map((o) => o.f.y));
+    const maxY = Math.max(...items.map((o) => o.f.y + o.f.h));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    for (const { id, f } of items) {
+      const nf = { ...f };
+      if (kind === 'left') nf.x = minX;
+      else if (kind === 'right') nf.x = maxX - f.w;
+      else if (kind === 'hcenter') nf.x = Math.round(cx - f.w / 2);
+      else if (kind === 'top') nf.y = minY;
+      else if (kind === 'bottom') nf.y = maxY - f.h;
+      else if (kind === 'vmiddle') nf.y = Math.round(cy - f.h / 2);
+      updateBlockFrame(id, nf);
+    }
+  };
+
+  // ── Keyboard: nudge (arrows) + delete on the whole selection ──
   useEffect(() => {
-    if (!editing || !selectedId) return;
+    if (!editing || sel.size === 0) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      const b = blocks.find((x) => x.id === selectedId);
-      if (!b) return;
-      const f = frameOf(b);
+      const ids = [...sel];
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        for (const id of ids) onRemove?.(id);
+        e.preventDefault();
+        return;
+      }
       const step = e.shiftKey ? 1 : GRID;
-      if (e.key === 'ArrowLeft') updateBlockFrame(selectedId, { ...f, x: f.x - step });
-      else if (e.key === 'ArrowRight') updateBlockFrame(selectedId, { ...f, x: f.x + step });
-      else if (e.key === 'ArrowUp') updateBlockFrame(selectedId, { ...f, y: f.y - step });
-      else if (e.key === 'ArrowDown') updateBlockFrame(selectedId, { ...f, y: f.y + step });
-      else if (e.key === 'Delete' || e.key === 'Backspace') onRemove?.(selectedId);
-      else return;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      if (dx === 0 && dy === 0) return;
+      for (const id of ids) {
+        const b = blocks.find((x) => x.id === id);
+        if (b) {
+          const f = frameOf(b);
+          updateBlockFrame(id, { ...f, x: f.x + dx, y: f.y + dy });
+        }
+      }
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editing, selectedId, blocks, updateBlockFrame, onRemove]);
+  }, [editing, sel, blocks, updateBlockFrame, onRemove]);
+
+  const mq = marquee
+    ? {
+        x: Math.min(marquee.x0, marquee.x1),
+        y: Math.min(marquee.y0, marquee.y1),
+        w: Math.abs(marquee.x1 - marquee.x0),
+        h: Math.abs(marquee.y1 - marquee.y0),
+      }
+    : null;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom surface; block controls provide keyboard access
+    // biome-ignore lint/a11y/noStaticElementInteractions: pan/marquee surface; block controls provide keyboard access
     <div
       ref={containerRef}
       className="relative h-[70vh] w-full overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)]"
       onWheel={onWheel}
-      onPointerDown={startPan}
+      onPointerDown={onBackgroundPointerDown}
       onDragOver={(e) => {
         if (onAddAt) e.preventDefault();
       }}
@@ -324,7 +448,7 @@ export function FreeCanvas({
         className="absolute left-0 top-0 origin-top-left"
         style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
       >
-        {/* Dot grid backdrop (scales with the surface) */}
+        {/* Dot grid backdrop */}
         <div
           className="pointer-events-none absolute -z-10"
           style={{
@@ -354,10 +478,19 @@ export function FreeCanvas({
           />
         ))}
 
+        {/* Marquee */}
+        {mq && (
+          <div
+            className="pointer-events-none absolute border border-brand-500 bg-brand-500/10"
+            style={{ left: mq.x, top: mq.y, width: mq.w, height: mq.h }}
+          />
+        )}
+
         {/* Blocks */}
         {blocks.map((b) => {
-          const f = frame(b);
-          const selected = editing && selectedId === b.id;
+          const f = frameFor(b);
+          const isSel = editing && sel.has(b.id);
+          const soleSel = isSel && sel.size === 1;
           return (
             // biome-ignore lint/a11y/noStaticElementInteractions: canvas object; selection/keyboard via inspector
             // biome-ignore lint/a11y/useKeyWithClickEvents: canvas object; selection/keyboard via inspector
@@ -366,7 +499,7 @@ export function FreeCanvas({
               onPointerDown={(e) => startMove(e, b)}
               onDoubleClick={() => onOpenEditor?.(b.id)}
               className={`group absolute overflow-hidden rounded-lg bg-[var(--color-bg-elevated)] shadow-sm transition-shadow ${
-                selected
+                isSel
                   ? 'outline outline-2 outline-brand-500'
                   : 'outline outline-1 outline-transparent hover:outline-brand-500/40'
               } ${editing ? 'cursor-grab active:cursor-grabbing' : ''}`}
@@ -379,7 +512,7 @@ export function FreeCanvas({
               {editing && (
                 <div
                   className={`absolute right-1 top-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
-                    selected ? 'opacity-100' : ''
+                    isSel ? 'opacity-100' : ''
                   }`}
                 >
                   {onOpenEditor && (
@@ -400,8 +533,8 @@ export function FreeCanvas({
                 </div>
               )}
 
-              {/* Resize handles (selected only) */}
-              {selected &&
+              {/* Resize handles — only when a single block is selected */}
+              {soleSel &&
                 HANDLES.map((h) => (
                   <span
                     key={h.id}
@@ -415,6 +548,34 @@ export function FreeCanvas({
           );
         })}
       </div>
+
+      {/* Alignment toolbar (multi-select) */}
+      {editing && sel.size >= 2 && (
+        <div className="absolute left-3 top-3 flex items-center gap-0.5 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-sm backdrop-blur">
+          <span className="px-1.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+            {sel.size} seçili
+          </span>
+          <AlignBtn label="Sola hizala" onClick={() => align('left')}>
+            ⇤
+          </AlignBtn>
+          <AlignBtn label="Yatay ortala" onClick={() => align('hcenter')}>
+            ↔
+          </AlignBtn>
+          <AlignBtn label="Sağa hizala" onClick={() => align('right')}>
+            ⇥
+          </AlignBtn>
+          <span className="mx-0.5 h-4 w-px bg-[var(--color-border-primary)]" />
+          <AlignBtn label="Üste hizala" onClick={() => align('top')}>
+            ⤒
+          </AlignBtn>
+          <AlignBtn label="Dikey ortala" onClick={() => align('vmiddle')}>
+            ↕
+          </AlignBtn>
+          <AlignBtn label="Alta hizala" onClick={() => align('bottom')}>
+            ⤓
+          </AlignBtn>
+        </div>
+      )}
 
       {/* Viewport controls */}
       <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/90 p-1 text-xs shadow-sm backdrop-blur">
@@ -447,7 +608,7 @@ export function FreeCanvas({
           <span className="text-3xl opacity-30">⬚</span>
           <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
             Soldaki paletten bir bileşeni tuvale <b>sürükle-bırak</b>. İstediğin yere koy,
-            boyutlandır, hizala. Çift tık → kod/blueprint.
+            boyutlandır, hizala. Çift tık → kod/blueprint. Boş alanı sürükle → çoklu seç.
           </p>
         </div>
       )}
@@ -464,7 +625,6 @@ function snapMove(
   let y = round(f.y);
   const v: number[] = [];
   const h: number[] = [];
-
   const myV = [f.x, f.x + f.w / 2, f.x + f.w];
   const myH = [f.y, f.y + f.h / 2, f.y + f.h];
   const offV = [0, f.w / 2, f.w];
@@ -498,19 +658,14 @@ function snapMove(
 /** Apply a resize-handle drag to a frame, keeping min sizes and grid snapping. */
 function resizeFrame(sf: Frame, handle: HandleId, dx: number, dy: number): Frame {
   let { x, y, w, h } = sf;
-  const east = handle.includes('e');
-  const west = handle.includes('w');
-  const north = handle.includes('n');
-  const south = handle.includes('s');
-
-  if (east) w = Math.max(MIN_W, round(sf.w + dx));
-  if (south) h = Math.max(MIN_H, round(sf.h + dy));
-  if (west) {
+  if (handle.includes('e')) w = Math.max(MIN_W, round(sf.w + dx));
+  if (handle.includes('s')) h = Math.max(MIN_H, round(sf.h + dy));
+  if (handle.includes('w')) {
     const nx = round(sf.x + dx);
     w = Math.max(MIN_W, sf.x + sf.w - nx);
     x = sf.x + sf.w - w;
   }
-  if (north) {
+  if (handle.includes('n')) {
     const ny = round(sf.y + dy);
     h = Math.max(MIN_H, sf.y + sf.h - ny);
     y = sf.y + sf.h - h;
@@ -543,6 +698,29 @@ function CanvasBtn({
       className={`eventium-no-drag flex h-6 min-w-6 items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/95 px-1 font-mono text-[11px] text-[var(--color-text-tertiary)] shadow-sm backdrop-blur transition-colors hover:text-[var(--color-text-primary)] ${
         danger ? 'hover:text-red-500' : 'hover:text-brand-500'
       }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** An alignment-toolbar button. */
+function AlignBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
     >
       {children}
     </button>
