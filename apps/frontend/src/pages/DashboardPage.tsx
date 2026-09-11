@@ -57,8 +57,10 @@ export function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  /** Component whose code/blueprint editor pane is open (double-click). */
-  const [editorBlockId, setEditorBlockId] = useState<string | null>(null);
+  /** Component code/blueprint editors open as document tabs (VS-style). */
+  const [editorTabs, setEditorTabs] = useState<string[]>([]);
+  /** Active document view: 'canvas' or a block id whose editor tab is open. */
+  const [activeView, setActiveView] = useState<string>('canvas');
 
   /** Canvas layout mode from the active project's type (grid/free/flow). */
   const layoutMode =
@@ -75,13 +77,28 @@ export function DashboardPage() {
   useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
-  const editorBlock = editorBlockId ? (blocks.find((b) => b.id === editorBlockId) ?? null) : null;
+  // Only keep editor tabs whose block still exists.
+  const openTabs = editorTabs.filter((id) => blocks.some((b) => b.id === id));
+  const activeEditorBlock =
+    activeView !== 'canvas' ? (blocks.find((b) => b.id === activeView) ?? null) : null;
 
-  /** Leaving edit mode clears the selection + closes the editor pane. */
+  /** Open (or focus) a component's editor as a document tab. */
+  const openEditor = (id: string) => {
+    setEditorTabs((t) => (t.includes(id) ? t : [...t, id]));
+    setActiveView(id);
+  };
+  /** Close an editor tab; fall back to the canvas when it was active. */
+  const closeEditor = (id: string) => {
+    setEditorTabs((t) => t.filter((x) => x !== id));
+    setActiveView((v) => (v === id ? 'canvas' : v));
+  };
+
+  /** Leaving edit mode clears the selection + closes all editor tabs. */
   useEffect(() => {
     if (!isEditMode) {
       selectBlock(null);
-      setEditorBlockId(null);
+      setEditorTabs([]);
+      setActiveView('canvas');
     }
   }, [isEditMode, selectBlock]);
 
@@ -324,32 +341,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Edit-mode banner */}
-      <AnimatePresence>
-        {isEditMode && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 text-xs text-brand-700 dark:text-brand-300">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path
-                  d="M7 1v12M1 7h12"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-              Edit mode — drag by the handle, resize from the corner, click the gear to bind a
-              component's data, then "Save Page".
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Canvas — palette (edit mode) on the left, drop target on the right */}
+      {/* Document area — canvas + per-component code/blueprint editor tabs */}
       {!isEditMode && blocks.length === 0 ? (
         <EmptyState
           title="Boş sayfa"
@@ -357,53 +349,84 @@ export function DashboardPage() {
           className="h-[50vh]"
         />
       ) : (
-        <div className="flex gap-4">
-          {isEditMode && <Palette />}
-          <div
-            className={`relative min-w-0 flex-1 rounded-xl transition-colors ${
-              isEditMode
-                ? 'bg-[var(--color-bg-secondary)] ring-1 ring-inset ring-[var(--color-border-primary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]'
-                : ''
-            }`}
-          >
-            <BlockGrid
-              blocks={blocks}
-              editing={isEditMode}
-              layoutMode={layoutMode}
-              selectedId={selectedBlockId}
-              onExternalDrop={(type, at) => {
-                addBlock(type, at);
-                setInspectorOpen(true);
-              }}
-              onSelectBlock={(id) => {
-                selectBlock(id);
-                setInspectorOpen(true);
-              }}
-              onOpenBlockEditor={(id) => {
-                selectBlock(id);
-                setEditorBlockId(id);
-              }}
-              onLayoutChange={updateBlockLayout}
-              onRemoveBlock={removeBlock}
-              onConfigureBlock={(id) => {
-                selectBlock(id);
-                setInspectorOpen(true);
-              }}
-            />
-            {isEditMode && blocks.length === 0 && (
-              <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
-                <span className="text-3xl opacity-40">⬚</span>
-                <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
-                  Soldaki paletten bir bileşeni buraya <b>sürükle-bırak</b> — ya da üstüne tıkla.
-                  Eklediğin bileşene <b>çift tıkla</b> → kod/blueprint açılır.
-                </p>
-              </div>
-            )}
-          </div>
+        <div className="space-y-2">
+          {/* Document tab bar (VS-style) — appears once an editor is open */}
+          {isEditMode && openTabs.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--color-border-primary)] pb-px">
+              <DocTab active={activeView === 'canvas'} onClick={() => setActiveView('canvas')}>
+                ◇ Canvas
+              </DocTab>
+              {openTabs.map((id) => {
+                const b = blocks.find((x) => x.id === id);
+                return (
+                  <DocTab
+                    key={id}
+                    active={activeView === id}
+                    onClick={() => setActiveView(id)}
+                    onClose={() => closeEditor(id)}
+                  >
+                    {'</> '}
+                    {b?.title || b?.componentType}
+                  </DocTab>
+                );
+              })}
+            </div>
+          )}
 
-          {/* Split editor pane — opens on double-clicking a component */}
-          {isEditMode && editorBlock && (
-            <ComponentEditorPane block={editorBlock} onClose={() => setEditorBlockId(null)} />
+          {activeEditorBlock ? (
+            /* Full-width component editor (code / blueprint) */
+            <div className="flex">
+              <ComponentEditorPane
+                block={activeEditorBlock}
+                onClose={() => closeEditor(activeEditorBlock.id)}
+              />
+            </div>
+          ) : (
+            /* Canvas view: palette + artboard */
+            <div className="flex gap-4">
+              {isEditMode && <Palette />}
+              <div
+                className={`relative min-w-0 flex-1 rounded-xl transition-colors ${
+                  isEditMode
+                    ? 'bg-[var(--color-bg-secondary)] ring-1 ring-inset ring-[var(--color-border-primary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]'
+                    : ''
+                }`}
+              >
+                <BlockGrid
+                  blocks={blocks}
+                  editing={isEditMode}
+                  layoutMode={layoutMode}
+                  selectedId={selectedBlockId}
+                  onExternalDrop={(type, at) => {
+                    addBlock(type, at);
+                    setInspectorOpen(true);
+                  }}
+                  onSelectBlock={(id) => {
+                    selectBlock(id);
+                    setInspectorOpen(true);
+                  }}
+                  onOpenBlockEditor={(id) => {
+                    selectBlock(id);
+                    openEditor(id);
+                  }}
+                  onLayoutChange={updateBlockLayout}
+                  onRemoveBlock={removeBlock}
+                  onConfigureBlock={(id) => {
+                    selectBlock(id);
+                    setInspectorOpen(true);
+                  }}
+                />
+                {isEditMode && blocks.length === 0 && (
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
+                    <span className="text-3xl opacity-40">⬚</span>
+                    <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
+                      Soldaki paletten bir bileşeni buraya <b>sürükle-bırak</b>. Eklediğine{' '}
+                      <b>çift tıkla</b> → kod/blueprint sekmesi açılır.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -458,6 +481,43 @@ function IconButton({
         {children}
       </svg>
     </button>
+  );
+}
+
+/** A document tab (Canvas / a component's code editor). */
+function DocTab({
+  active,
+  onClick,
+  onClose,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  onClose?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`flex shrink-0 items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        active
+          ? 'border border-b-0 border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)]'
+          : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+      }`}
+    >
+      <button type="button" onClick={onClick} className="max-w-[180px] truncate">
+        {children}
+      </button>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Sekmeyi kapat"
+          className="text-[var(--color-text-tertiary)] transition-colors hover:text-red-500"
+        >
+          ×
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -39,7 +39,7 @@ export function ComponentEditorPane({ block, onClose }: ComponentEditorPaneProps
   };
 
   return (
-    <aside className="flex w-[440px] shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]">
+    <aside className="flex min-h-[60vh] min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border-primary)] px-3 py-2">
         <div className="min-w-0">

@@ -84,7 +84,8 @@ export function PanelWrapper({
   freeDrag = false,
   className = '',
 }: PanelWrapperProps) {
-  // ── Edit mode: component renders as itself, chrome floats on hover/select ──
+  // ── Edit mode: the component renders as itself; no frame. A thin outline and
+  // a tiny toolbar appear only on hover/selection (Figma / VS designer feel). ──
   if (editing) {
     return (
       // biome-ignore lint/a11y/noStaticElementInteractions: canvas selection; keyboard access via inspector
@@ -92,29 +93,39 @@ export function PanelWrapper({
       <div
         onClick={onSelect}
         onDoubleClick={onOpenEditor}
-        className={`group relative flex h-full flex-col overflow-hidden rounded-lg bg-[var(--color-bg-elevated)] border transition-all ${
+        className={`group relative h-full w-full overflow-hidden rounded-lg transition-all ${
           selected
-            ? 'border-brand-500 ring-2 ring-brand-500/50'
-            : 'border-[var(--color-border-primary)] hover:border-brand-500/40'
+            ? 'outline outline-2 outline-brand-500'
+            : 'outline-1 outline-transparent hover:outline hover:outline-1 hover:outline-brand-500/40'
         } ${freeDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${className}`}
       >
-        {/* Component itself fills the card */}
-        <div className="min-h-0 flex-1 overflow-auto text-[var(--color-text-primary)]">
+        {/* Component itself fills the space — no card chrome */}
+        <div className="h-full w-full overflow-auto text-[var(--color-text-primary)]">
           {children}
         </div>
 
-        {/* Title chip — top-left; doubles as the drag handle in grid mode */}
-        <span
-          className={`${freeDrag ? '' : `${DRAG_HANDLE_CLASS} cursor-grab active:cursor-grabbing`} pointer-events-auto absolute left-1.5 top-1.5 max-w-[70%] truncate rounded-md bg-[var(--color-bg-elevated)]/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100 ${
-            selected ? 'opacity-100' : ''
-          }`}
-        >
-          {title || 'panel'}
-        </span>
+        {/* Drag grip — top-left, hover-only; the handle in grid mode */}
+        {!freeDrag && (
+          <span
+            className={`${DRAG_HANDLE_CLASS} absolute left-1 top-1 flex h-5 w-5 cursor-grab items-center justify-center rounded bg-[var(--color-bg-elevated)]/90 text-[var(--color-text-tertiary)] opacity-0 shadow-sm backdrop-blur transition-opacity hover:text-[var(--color-text-primary)] active:cursor-grabbing group-hover:opacity-100 ${
+              selected ? 'opacity-100' : ''
+            }`}
+            aria-label="Taşı"
+          >
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+              <circle cx="5" cy="3" r="1" />
+              <circle cx="9" cy="3" r="1" />
+              <circle cx="5" cy="7" r="1" />
+              <circle cx="9" cy="7" r="1" />
+              <circle cx="5" cy="11" r="1" />
+              <circle cx="9" cy="11" r="1" />
+            </svg>
+          </span>
+        )}
 
-        {/* Floating toolbar — top-right */}
+        {/* Floating toolbar — top-right, hover-only */}
         <div
-          className={`absolute right-1.5 top-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
+          className={`absolute right-1 top-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
             selected ? 'opacity-100' : ''
           }`}
         >
