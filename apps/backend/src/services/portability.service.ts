@@ -51,7 +51,11 @@ export class PagePortabilityService {
       };
     });
 
-    const layout = (dashboard.layout ?? {}) as { columns?: number };
+    const layout = (dashboard.layout ?? {}) as {
+      columns?: number;
+      variables?: Record<string, string>;
+    };
+    const variables = normalizeVariables(layout.variables);
     return {
       specVersion: 1,
       name: dashboard.name,
@@ -59,6 +63,7 @@ export class PagePortabilityService {
       columns: layout.columns ?? 12,
       blocks,
       requiredSources: [...required],
+      ...(variables && { variables }),
     };
   }
 
@@ -87,10 +92,31 @@ export class PagePortabilityService {
     return this.dashboards.create({
       name: spec.name,
       description: spec.description,
-      layout: { columns: spec.columns },
+      layout: {
+        columns: spec.columns,
+        ...(spec.variables && Object.keys(spec.variables).length > 0
+          ? { variables: spec.variables }
+          : {}),
+      },
       blocks,
     });
   }
+}
+
+/**
+ * Coerces a persisted `layout.variables` blob into a clean `name → string` map,
+ * or `undefined` when there are no usable string entries (so an empty page omits
+ * the field from its spec entirely).
+ */
+function normalizeVariables(
+  raw: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** Remove `instanceId` from every binding and collect referenced source types. */

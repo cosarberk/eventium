@@ -12,6 +12,7 @@ import { LiveTabBar } from '@/components/live/LiveTabBar';
 import { SoundGate } from '@/components/live/SoundGate';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useLive } from '@/hooks/useLive';
+import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useSocket } from '@/hooks/useSocket';
 
 /**
@@ -36,6 +37,9 @@ export function LivePage() {
     setActiveDashboardId,
     toggleRotation,
   } = useLive(dashboards);
+
+  // Apply the active page's shipped runtime variables (from its layout blob).
+  useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   /** Sync dashboards from query to store */
   useEffect(() => {

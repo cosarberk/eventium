@@ -14,6 +14,7 @@ import {
   updateDashboard,
 } from '@/services/dashboard.service';
 import { useDashboardStore } from '@/storage/dashboard.store';
+import { useVariablesStore } from '@/storage/variables.store';
 import type { DashboardBlock } from '@/types';
 
 /** Query key factory for dashboard queries. */
@@ -59,7 +60,12 @@ export function useDashboard() {
       input,
     }: {
       id: string;
-      input: { name?: string; blocks?: DashboardBlock[]; isDefault?: boolean };
+      input: {
+        name?: string;
+        blocks?: DashboardBlock[];
+        isDefault?: boolean;
+        layout?: Record<string, unknown>;
+      };
     }) => updateDashboard(id, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dashboardKeys.lists() });
@@ -73,12 +79,20 @@ export function useDashboard() {
     },
   });
 
-  /** Persists the active page's current block layout/content to the server. */
+  /**
+   * Persists the active page's current blocks *and* runtime variables to the
+   * server. Variables are folded into the page's `layout` blob so they travel
+   * with export/import and broadcast, not just this browser's local store.
+   */
   const saveLayout = () => {
     if (!store.activeDashboard) return;
+    const variables = useVariablesStore.getState().variables;
     updateMutation.mutate({
       id: store.activeDashboard.id,
-      input: { blocks: store.activeDashboard.blocks },
+      input: {
+        blocks: store.activeDashboard.blocks,
+        layout: { ...store.activeDashboard.layout, variables },
+      },
     });
   };
 

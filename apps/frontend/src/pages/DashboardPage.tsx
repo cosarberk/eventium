@@ -17,6 +17,7 @@ import { PageShareControls } from '@/components/design/PageShareControls';
 import { listComponentDescriptors } from '@/components/design/registry';
 import { VariableBar } from '@/components/design/VariableBar';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
 import type { ComponentDescriptor } from '@/types';
@@ -62,6 +63,9 @@ export function DashboardPage() {
       setDashboards(dashboards);
     }
   }, [dashboards, setDashboards]);
+
+  // Load the page's persisted runtime variables when the active page changes.
+  useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
 

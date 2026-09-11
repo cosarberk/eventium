@@ -15,6 +15,8 @@ interface VariablesState {
   variables: Record<string, string>;
   setVariable: (name: string, value: string) => void;
   removeVariable: (name: string) => void;
+  /** Replaces the entire variable set (used when a page is loaded/switched). */
+  setAll: (variables: Record<string, string>) => void;
 }
 
 /** Global variables store. */
@@ -29,10 +31,26 @@ export const useVariablesStore = create<VariablesState>()(
           delete next[name];
           return { variables: next };
         }),
+      setAll: (variables) => set({ variables: { ...variables } }),
     }),
     { name: 'eventium-variables' },
   ),
 );
+
+/**
+ * Extracts the `name → value` variable map persisted in a page's `layout` blob.
+ * Tolerant of missing/malformed data — always returns a clean string map.
+ */
+export function readLayoutVariables(layout: unknown): Record<string, string> {
+  if (!layout || typeof layout !== 'object') return {};
+  const raw = (layout as { variables?: unknown }).variables;
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') out[key] = value;
+  }
+  return out;
+}
 
 /**
  * Substitute `$name` param values with the current variable values.

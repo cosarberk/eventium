@@ -15,6 +15,7 @@ import { LivePanelGrid } from '@/components/live/LivePanelGrid';
 import { LiveTabBar } from '@/components/live/LiveTabBar';
 import { SoundGate } from '@/components/live/SoundGate';
 import { useLive } from '@/hooks/useLive';
+import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useSocket } from '@/hooks/useSocket';
 import { useBroadcastSessionStore } from '@/storage/broadcast.store';
 
@@ -70,6 +71,9 @@ export function BroadcastPage() {
   } = useLive(dashboards, {
     overrideInterval: undefined,
   });
+
+  // Apply the active page's shipped runtime variables (delivered in its layout).
+  useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   /** Clock ticker */
   useEffect(() => {

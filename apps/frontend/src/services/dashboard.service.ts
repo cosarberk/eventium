@@ -84,12 +84,15 @@ export async function updateDashboard(
     name?: string;
     blocks?: DashboardBlock[];
     isDefault?: boolean;
+    /** Page layout blob (grid columns + runtime variables). */
+    layout?: Record<string, unknown>;
   },
 ): Promise<Dashboard> {
   const gqlInput: Record<string, unknown> = {};
   if (input.name !== undefined) gqlInput.name = input.name;
   if (input.isDefault !== undefined) gqlInput.isDefault = input.isDefault;
   if (input.blocks) gqlInput.blocks = input.blocks.map(toBlockInput);
+  if (input.layout !== undefined) gqlInput.layout = input.layout;
 
   const result = await urqlClient.mutation(UPDATE_DASHBOARD, { id, input: gqlInput }).toPromise();
   if (result.error) throw new Error(result.error.message);
