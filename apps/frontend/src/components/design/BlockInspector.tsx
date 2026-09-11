@@ -22,7 +22,7 @@ import type {
   ValueFormat,
 } from '@/types';
 import { BindingPicker } from './BindingPicker';
-import { type BlockInteraction, readInteraction } from './interactions';
+import { type BlockInteraction, readInteractionDraft } from './interactions';
 
 /** Props for {@link BlockInspector}. */
 export interface BlockInspectorProps {
@@ -240,7 +240,7 @@ export function BlockInspector({
 
         {/* Interaction (drill-down / cross-filter) */}
         <InteractionEditor
-          interaction={readInteraction(block.options)}
+          interaction={readInteractionDraft(block.options)}
           fieldLabels={fieldLabels}
           boards={dashboards.map((d) => ({ id: d.id, name: d.name }))}
           activeBoardId={activeDashboardId}

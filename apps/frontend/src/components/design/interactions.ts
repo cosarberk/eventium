@@ -72,6 +72,27 @@ export function readInteraction(options: Record<string, unknown>): BlockInteract
 }
 
 /**
+ * Lenient read of a block's interaction config for the *editor* — keeps
+ * in-progress edits (e.g. a chosen action before a variable name is typed) that
+ * {@link readInteraction} would reject. Never returns null for a valid action,
+ * so the inspector's controls stay selected while the user fills them in.
+ */
+export function readInteractionDraft(options: Record<string, unknown>): BlockInteraction | null {
+  const raw = options.interaction;
+  if (!raw || typeof raw !== 'object') return null;
+  const i = raw as Record<string, unknown>;
+  if (i.action !== 'set-variable' && i.action !== 'navigate') return null;
+  return {
+    action: i.action,
+    variable: str(i.variable),
+    source: i.source === 'static' ? 'static' : 'field',
+    field: str(i.field),
+    value: typeof i.value === 'string' ? i.value : undefined,
+    boardId: str(i.boardId),
+  };
+}
+
+/**
  * Resolves the value an interaction writes for a given clicked row.
  * `static` uses the literal; `field` reads the row cell by column label.
  */
