@@ -46,7 +46,20 @@ try {
     await page.waitForTimeout(800);
   }
 
-  await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle' });
+  // Optionally open a specific project by name from the Home project grid.
+  const project = process.env.SHOT_PROJECT;
+  if (project) {
+    await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(500);
+    await page
+      .locator('button', { hasText: project })
+      .first()
+      .click()
+      .catch(() => log('project not found:', project));
+    await page.waitForTimeout(800);
+  } else {
+    await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle' });
+  }
   await page.waitForTimeout(1000);
 
   // Enter edit mode so the docking studio shows.

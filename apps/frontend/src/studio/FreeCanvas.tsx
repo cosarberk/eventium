@@ -567,7 +567,10 @@ export function FreeCanvas({
     >
       {/* Tool strip (Photoshop-style) */}
       {editing && (
-        <div className="absolute left-2 top-2 z-20 flex flex-col gap-1 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-md backdrop-blur">
+        <div
+          className="absolute z-20 flex flex-col gap-1 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-md backdrop-blur"
+          style={{ top: RULER + 8, left: RULER + 8 }}
+        >
           {TOOLS.map((t) => (
             <button
               key={t.id}
@@ -597,7 +600,10 @@ export function FreeCanvas({
 
       {/* Options bar (active tool context) */}
       {editing && (
-        <div className="absolute left-14 top-2 z-20 flex items-center gap-2 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)] shadow-sm backdrop-blur">
+        <div
+          className="absolute z-20 flex items-center gap-2 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)] shadow-sm backdrop-blur"
+          style={{ top: RULER + 8, left: RULER + 56 }}
+        >
           <span className="font-medium text-[var(--color-text-primary)]">
             {TOOLS.find((t) => t.id === tool)?.label}
           </span>
@@ -771,7 +777,10 @@ export function FreeCanvas({
 
       {/* Alignment toolbar (multi-select) */}
       {editing && sel.size >= 2 && (
-        <div className="absolute left-3 top-3 flex items-center gap-0.5 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-sm backdrop-blur">
+        <div
+          className="absolute z-20 flex items-center gap-0.5 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-sm backdrop-blur"
+          style={{ top: RULER + 48, left: RULER + 8 }}
+        >
           <span className="px-1.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
             {sel.size} seçili
           </span>
