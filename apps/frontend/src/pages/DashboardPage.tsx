@@ -188,7 +188,7 @@ export function DashboardPage() {
                 const d = dashboards.find((db) => db.id === e.target.value);
                 if (d) setActiveDashboard(d);
               }}
-              className="text-lg font-semibold text-[var(--color-text-primary)] bg-transparent border-none outline-none cursor-pointer appearance-none pr-6"
+              className="text-sm font-semibold text-[var(--color-text-primary)] bg-transparent border-none outline-none cursor-pointer appearance-none pr-6"
               style={{
                 backgroundImage:
                   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")",
@@ -280,8 +280,18 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
+                title="Kaydet (⌘S)"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-emerald-400 hover:bg-[var(--color-surface-hover)] transition-colors"
               >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path
+                    d="M3 2h6l3 3v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z M5 2v3h4M4.5 9.5h5"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 Kaydet
               </button>
             </>
@@ -290,13 +300,13 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={toggleEditMode}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
               isEditMode
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                ? 'text-brand-400 hover:bg-[var(--color-surface-hover)]'
+                : 'bg-brand-500/90 text-white hover:bg-brand-500'
             }`}
           >
-            {isEditMode ? 'Bitir' : 'Düzenle'}
+            {isEditMode ? '✓ Bitir' : 'Düzenle'}
           </button>
         </div>
       </div>
