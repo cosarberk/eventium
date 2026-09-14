@@ -1,32 +1,25 @@
 /**
  * @fileoverview Desktop-style application workspace shell.
  *
- * A full-viewport, multi-pane layout — menu/title bar, left tool rail, a tabbed
- * document area, a resizable inspector dock and a status bar — that feels like a
- * native pro application (VS/SolidWorks), not a scrolling web page. The window
- * never scrolls; only the document area does. Fully responsive: on mobile the
- * rail/inspector collapse and navigation moves into a drawer.
+ * A full-viewport layout — menu/title bar, left tool rail, a tabbed document
+ * area and a status bar — that feels like a native pro application, not a
+ * scrolling web page. The studio's own docking manager (Toolbox/Designer/
+ * Properties/…) lives inside the Boards route, so the shell carries no separate
+ * inspector/dock. The window never scrolls; only the document area does.
  */
-import { Outlet, useRouterState } from '@tanstack/react-router';
+import { Outlet } from '@tanstack/react-router';
 import { BlueprintOverlay } from '@/components/blueprint/BlueprintEditor';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { QueryBuilderOverlay } from '@/components/query/QueryBuilder';
-import { Inspector } from '@/components/shell/Inspector';
 import { MenuBar } from '@/components/shell/MenuBar';
 import { MobileNav } from '@/components/shell/MobileNav';
 import { StatusBar } from '@/components/shell/StatusBar';
 import { TabStrip } from '@/components/shell/TabStrip';
 import { ToolRail } from '@/components/shell/ToolRail';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { WorkspaceDock } from '@/studio/WorkspaceDock';
 
 /** The full authenticated workspace. */
 export function DashboardLayout() {
-  // The Boards route is a full docking workspace (own Toolbox/Properties/panel),
-  // so the shell's separate Inspector + bottom dock are hidden there.
-  const path = useRouterState({ select: (s) => s.location.pathname });
-  const isStudio = path.startsWith('/boards');
-
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
       <MenuBar />
@@ -41,10 +34,7 @@ export function DashboardLayout() {
               <Outlet />
             </div>
           </div>
-          {!isStudio && <WorkspaceDock />}
         </main>
-
-        {!isStudio && <Inspector />}
       </div>
 
       <StatusBar />
