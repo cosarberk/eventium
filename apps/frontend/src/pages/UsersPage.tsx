@@ -26,9 +26,9 @@ const ROLES: ManagedRole[] = ['ADMIN', 'EDITOR', 'VIEWER'];
 
 /** Validation for the create-user form. */
 const createUserSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  password: z.string().min(12, 'Password must be at least 12 characters'),
+  email: z.string().email('Geçerli bir e-posta gir'),
+  name: z.string().min(2, 'Ad en az 2 karakter olmalı'),
+  password: z.string().min(12, 'Şifre en az 12 karakter olmalı'),
   role: z.enum(['ADMIN', 'EDITOR', 'VIEWER']),
 });
 
@@ -90,7 +90,7 @@ function UserRow({
       <td className="px-3 py-2.5">
         {user.mustChangePassword ? (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-            Must change password
+            Şifre değiştirmeli
           </span>
         ) : (
           <span className="text-[11px] text-[var(--color-text-tertiary)]">Aktif</span>
@@ -155,7 +155,10 @@ export function UsersPage() {
         <h1 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
           Kullanıcılar
         </h1>
-        <EmptyState title="Not authorized" description="Only administrators can manage users." />
+        <EmptyState
+          title="Yetkiniz yok"
+          description="Kullanıcıları yalnızca yöneticiler yönetebilir."
+        />
       </div>
     );
   }
@@ -183,9 +186,9 @@ export function UsersPage() {
               htmlFor="name"
               className="block text-xs font-medium text-[var(--color-text-secondary)]"
             >
-              Name
+              Ad
             </label>
-            <input id="name" {...register('name')} className={inputClass} placeholder="Full name" />
+            <input id="name" {...register('name')} className={inputClass} placeholder="Ad soyad" />
             {errors.name && <p className="text-[11px] text-red-500">{errors.name.message}</p>}
           </div>
           <div className="space-y-1.5">
@@ -193,7 +196,7 @@ export function UsersPage() {
               htmlFor="email"
               className="block text-xs font-medium text-[var(--color-text-secondary)]"
             >
-              Email
+              E-posta
             </label>
             <input
               id="email"
@@ -209,14 +212,14 @@ export function UsersPage() {
               htmlFor="password"
               className="block text-xs font-medium text-[var(--color-text-secondary)]"
             >
-              Temporary password
+              Geçici şifre
             </label>
             <input
               id="password"
               type="text"
               {...register('password')}
               className={inputClass}
-              placeholder="At least 12 characters"
+              placeholder="En az 12 karakter"
             />
             {errors.password && (
               <p className="text-[11px] text-red-500">{errors.password.message}</p>
@@ -227,7 +230,7 @@ export function UsersPage() {
               htmlFor="role"
               className="block text-xs font-medium text-[var(--color-text-secondary)]"
             >
-              Role
+              Rol
             </label>
             <select id="role" {...register('role')} className={inputClass}>
               {ROLES.map((r) => (
@@ -243,7 +246,7 @@ export function UsersPage() {
               disabled={createUser.isPending}
               className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
             >
-              {createUser.isPending ? 'Creating...' : 'Create user'}
+              {createUser.isPending ? 'Oluşturuluyor…' : 'Kullanıcı oluştur'}
             </button>
           </div>
         </form>
