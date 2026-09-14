@@ -31,7 +31,7 @@ const BlueprintCanvas = lazy(() =>
   import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
 );
 
-const LAYOUT_KEY = 'eventium-dock-layout-v4';
+const LAYOUT_KEY = 'eventium-dock-layout-v5';
 
 /** Builds the default tool-window layout (used on first load and on reset). */
 function applyDefaultLayout(api: DockviewApi) {
@@ -61,6 +61,12 @@ function applyDefaultLayout(api: DockviewApi) {
     position: { referencePanel: 'properties', direction: 'within' },
   });
   api.addPanel({
+    id: 'preview',
+    component: 'preview',
+    title: 'Önizleme',
+    position: { referencePanel: 'designer', direction: 'within' },
+  });
+  api.addPanel({
     id: 'problems',
     component: 'problems',
     title: 'Sorunlar',
@@ -74,6 +80,7 @@ function applyDefaultLayout(api: DockviewApi) {
   });
   api.getPanel('properties')?.api.setActive();
   api.getPanel('problems')?.api.setActive();
+  api.getPanel('designer')?.api.setActive();
 }
 
 /** A tool window's identity for the View toolbar. */
@@ -81,10 +88,11 @@ const TOOL_WINDOWS: {
   id: string;
   component: string;
   title: string;
-  dir: 'left' | 'right' | 'below';
+  dir: 'left' | 'right' | 'below' | 'within';
 }[] = [
   { id: 'toolbox', component: 'toolbox', title: 'Araç Kutusu', dir: 'left' },
   { id: 'outline', component: 'outline', title: 'Anahat', dir: 'left' },
+  { id: 'preview', component: 'preview', title: 'Önizleme', dir: 'within' },
   { id: 'properties', component: 'properties', title: 'Özellikler', dir: 'right' },
   { id: 'data', component: 'data', title: 'Veri & Kaynaklar', dir: 'right' },
   { id: 'problems', component: 'problems', title: 'Sorunlar', dir: 'below' },
@@ -156,6 +164,11 @@ function ProblemsDoc() {
 /** Console document. */
 function ConsoleDoc() {
   return <ConsolePanel />;
+}
+
+/** Preview document — the page rendered read-only, interactions live. */
+function PreviewDoc() {
+  return <CanvasSurface editing={false} />;
 }
 
 /** Designer document — the canvas. */
@@ -245,6 +258,7 @@ function PropertiesPanel() {
 
 const COMPONENTS = {
   designer: DesignerPanel,
+  preview: PreviewDoc,
   code: CodePanel,
   blueprint: BlueprintPanel,
   toolbox: ToolboxPanel,
