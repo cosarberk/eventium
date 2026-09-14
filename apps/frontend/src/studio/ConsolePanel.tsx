@@ -5,6 +5,7 @@
  */
 import { useEffect } from 'react';
 import { installConsoleCapture, type LogLevel, useConsoleStore } from './console.store';
+import { PanelEmpty } from './PanelEmpty';
 
 const LEVEL_STYLE: Record<LogLevel, string> = {
   error: 'text-red-400',
@@ -41,7 +42,10 @@ export function ConsolePanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2 font-mono text-[11px] leading-relaxed">
         {entries.length === 0 ? (
-          <p className="text-[var(--color-text-tertiary)]">Çıktı yok.</p>
+          <PanelEmpty
+            icon="⌗"
+            text="Çıktı yok. Çalışma zamanı ve özel kod hataları burada görünür."
+          />
         ) : (
           entries.map((e) => (
             <div key={e.id} className="flex gap-2">

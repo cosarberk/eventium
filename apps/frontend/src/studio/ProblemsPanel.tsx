@@ -6,6 +6,7 @@
 import { parseFieldRef } from '@eventium/shared';
 import { getComponent } from '@/components/design/registry';
 import { useDashboardStore } from '@/storage/dashboard.store';
+import { PanelEmpty } from './PanelEmpty';
 
 interface Problem {
   blockId: string;
@@ -59,7 +60,7 @@ export function ProblemsPanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-1.5 text-xs">
         {problems.length === 0 ? (
-          <p className="px-2 py-3 text-[11px] text-[var(--color-text-tertiary)]">Sorun yok. ✓</p>
+          <PanelEmpty icon="✓" text="Sorun yok. Zorunlu slotlar ve binding'ler geçerli." />
         ) : (
           problems.map((p, i) => (
             <button

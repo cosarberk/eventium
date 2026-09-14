@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { getComponent } from '@/components/design/registry';
 import { useDashboardStore } from '@/storage/dashboard.store';
+import { PanelEmpty } from './PanelEmpty';
 
 /** The outline / layers panel. */
 export function OutlinePanel() {
@@ -31,9 +32,10 @@ export function OutlinePanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-1.5">
         {ordered.length === 0 && (
-          <p className="px-2 py-4 text-center text-[11px] text-[var(--color-text-tertiary)]">
-            Henüz bileşen yok.
-          </p>
+          <PanelEmpty
+            icon="☰"
+            text="Henüz bileşen yok. Tuvale bir bileşen ekle; burada katman ağacı olarak görünür."
+          />
         )}
         {ordered.map((b) => {
           const descriptor = getComponent(b.componentType)?.descriptor;

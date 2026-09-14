@@ -13,6 +13,7 @@ import { getComponent } from '@/components/design/registry';
 import { VariableBar } from '@/components/design/VariableBar';
 import { useSourceCapabilities } from '@/hooks/useSourceCapabilities';
 import { useDashboardStore } from '@/storage/dashboard.store';
+import { PanelEmpty } from './PanelEmpty';
 
 function makeValueId(): string {
   return `v-${Date.now()}-${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -70,9 +71,10 @@ export function DataSourcesPanel() {
       <div className="min-h-0 flex-1 overflow-auto p-1.5 text-xs">
         {isLoading && <p className="px-2 py-3 text-[var(--color-text-tertiary)]">Yükleniyor…</p>}
         {!isLoading && capabilities.length === 0 && (
-          <p className="px-2 py-3 text-[11px] text-[var(--color-text-tertiary)]">
-            Etkin kaynak yok. Plugins'ten bir kaynak ekle.
-          </p>
+          <PanelEmpty
+            icon="🔌"
+            text="Etkin kaynak yok. Eklentiler'den bir veri kaynağı bağla; alanları buradan sürükle."
+          />
         )}
 
         {capabilities.map((inst) => {
