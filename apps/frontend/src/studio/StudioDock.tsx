@@ -30,6 +30,56 @@ const BlueprintCanvas = lazy(() =>
 
 const LAYOUT_KEY = 'eventium-dock-layout-v2';
 
+/** Builds the default tool-window layout (used on first load and on reset). */
+function applyDefaultLayout(api: DockviewApi) {
+  api.addPanel({ id: 'designer', component: 'designer', title: 'Tasarımcı' });
+  api.addPanel({
+    id: 'toolbox',
+    component: 'toolbox',
+    title: 'Araç Kutusu',
+    position: { referencePanel: 'designer', direction: 'left' },
+  });
+  api.addPanel({
+    id: 'outline',
+    component: 'outline',
+    title: 'Anahat',
+    position: { referencePanel: 'toolbox', direction: 'below' },
+  });
+  api.addPanel({
+    id: 'properties',
+    component: 'properties',
+    title: 'Özellikler',
+    position: { referencePanel: 'designer', direction: 'right' },
+  });
+}
+
+/** A tool window's identity for the View toolbar. */
+const TOOL_WINDOWS: {
+  id: string;
+  component: string;
+  title: string;
+  dir: 'left' | 'right' | 'below';
+}[] = [
+  { id: 'toolbox', component: 'toolbox', title: 'Araç Kutusu', dir: 'left' },
+  { id: 'outline', component: 'outline', title: 'Anahat', dir: 'left' },
+  { id: 'properties', component: 'properties', title: 'Özellikler', dir: 'right' },
+];
+
+/** Reopen a tool window if closed, otherwise focus it. */
+function ensureToolWindow(api: DockviewApi, w: (typeof TOOL_WINDOWS)[number]) {
+  const existing = api.getPanel(w.id);
+  if (existing) {
+    existing.api.setActive();
+    return;
+  }
+  api.addPanel({
+    id: w.id,
+    component: w.component,
+    title: w.title,
+    position: { referencePanel: 'designer', direction: w.dir },
+  });
+}
+
 /** Open (or focus) a control's code/blueprint document. */
 function openDoc(
   api: DockviewApi,
@@ -181,27 +231,7 @@ export function StudioDock() {
       restored = false;
     }
 
-    if (!restored) {
-      api.addPanel({ id: 'designer', component: 'designer', title: 'Tasarımcı' });
-      api.addPanel({
-        id: 'toolbox',
-        component: 'toolbox',
-        title: 'Araç Kutusu',
-        position: { referencePanel: 'designer', direction: 'left' },
-      });
-      api.addPanel({
-        id: 'outline',
-        component: 'outline',
-        title: 'Anahat',
-        position: { referencePanel: 'toolbox', direction: 'below' },
-      });
-      api.addPanel({
-        id: 'properties',
-        component: 'properties',
-        title: 'Özellikler',
-        position: { referencePanel: 'designer', direction: 'right' },
-      });
-    }
+    if (!restored) applyDefaultLayout(api);
 
     api.onDidLayoutChange(() => {
       try {
@@ -225,12 +255,50 @@ export function StudioDock() {
     }
   }, [blocks]);
 
+  const resetLayout = () => {
+    const api = apiRef.current;
+    if (!api) return;
+    api.clear();
+    applyDefaultLayout(api);
+    try {
+      localStorage.removeItem(LAYOUT_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <DockviewReact
-      components={COMPONENTS}
-      onReady={onReady}
-      theme={themeVisualStudio}
-      className="h-full w-full"
-    />
+    <div className="flex h-full w-full flex-col">
+      {/* View toolbar — reopen tool windows + reset layout */}
+      <div className="flex items-center gap-1 border-b border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] px-2 py-1 text-[11px]">
+        <span className="px-1 text-[var(--color-text-tertiary)]">Görünüm</span>
+        {TOOL_WINDOWS.map((w) => (
+          <button
+            key={w.id}
+            type="button"
+            onClick={() => apiRef.current && ensureToolWindow(apiRef.current, w)}
+            className="rounded px-2 py-0.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+          >
+            {w.title}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={resetLayout}
+          className="rounded px-2 py-0.5 text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+        >
+          Yerleşimi sıfırla
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <DockviewReact
+          components={COMPONENTS}
+          onReady={onReady}
+          theme={themeVisualStudio}
+          className="h-full w-full"
+        />
+      </div>
+    </div>
   );
 }
