@@ -50,30 +50,34 @@ export function CanvasSurface({ editing, onOpenCode }: CanvasSurfaceProps) {
   }
 
   return (
-    <div className="relative h-full overflow-auto bg-[var(--color-bg-secondary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
-      <BlockGrid
-        blocks={blocks}
-        editing={editing}
-        layoutMode={layoutMode}
-        selectedId={selectedId}
-        onExternalDrop={(type, at) => addBlock(type, at)}
-        onSelectBlock={(id) => selectBlock(id)}
-        onOpenBlockEditor={(id) => {
-          selectBlock(id);
-          onOpenCode?.(id);
-        }}
-        onLayoutChange={updateBlockLayout}
-        onRemoveBlock={removeBlock}
-        onConfigureBlock={(id) => selectBlock(id)}
-      />
-      {editing && blocks.length === 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 text-center">
-          <span className="text-3xl opacity-40">⬚</span>
-          <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
-            Araç kutusundan bir bileşeni buraya <b>sürükle-bırak</b>. Çift tık → kod/blueprint.
-          </p>
-        </div>
-      )}
+    <div className="h-full overflow-auto bg-[var(--color-bg-secondary)] p-6 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
+      {/* Artboard — a bounded 'page' surface, centered like a document */}
+      <div className="relative mx-auto min-h-[640px] w-full max-w-[1200px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] p-1.5 shadow-2xl shadow-black/30">
+        <BlockGrid
+          blocks={blocks}
+          editing={editing}
+          layoutMode={layoutMode}
+          selectedId={selectedId}
+          onExternalDrop={(type, at) => addBlock(type, at)}
+          onSelectBlock={(id) => selectBlock(id)}
+          onOpenBlockEditor={(id) => {
+            selectBlock(id);
+            onOpenCode?.(id);
+          }}
+          onLayoutChange={updateBlockLayout}
+          onRemoveBlock={removeBlock}
+          onConfigureBlock={(id) => selectBlock(id)}
+        />
+        {editing && blocks.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
+            <span className="text-3xl opacity-30">⬚</span>
+            <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
+              Araç kutusundan bir bileşeni bu sayfaya <b>sürükle-bırak</b>. Çift tık →
+              kod/blueprint.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
