@@ -119,21 +119,21 @@ function SettingsIcon() {
 
 /** Primary navigation destinations (role-gated). */
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Home', icon: <HomeIcon /> },
+  { to: '/', label: 'Ana Sayfa', icon: <HomeIcon /> },
   { to: '/new', label: 'Yeni', icon: <NewIcon />, minRole: 'EDITOR' },
-  { to: '/boards', label: 'Boards', icon: <DashboardIcon /> },
+  { to: '/boards', label: 'Panolar', icon: <DashboardIcon /> },
   { to: '/links', label: 'Linklerim', icon: <LinksIcon />, minRole: 'EDITOR' },
-  { to: '/plugins', label: 'Plugins', icon: <PluginsIcon />, minRole: 'EDITOR' },
-  { to: '/live', label: 'Live View', icon: <LiveIcon /> },
-  { to: '/users', label: 'Users', icon: <UsersIcon />, minRole: 'ADMIN' },
-  { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
+  { to: '/plugins', label: 'Eklentiler', icon: <PluginsIcon />, minRole: 'EDITOR' },
+  { to: '/live', label: 'Canlı', icon: <LiveIcon /> },
+  { to: '/users', label: 'Kullanıcılar', icon: <UsersIcon />, minRole: 'ADMIN' },
+  { to: '/settings', label: 'Ayarlar', icon: <SettingsIcon /> },
 ];
 
 /** Human title for the current path (top bar breadcrumb). */
 export function titleForPath(path: string): string {
-  if (path === '/') return 'Home';
+  if (path === '/') return 'Ana Sayfa';
   const item = NAV_ITEMS.find((n) => n.to !== '/' && path.startsWith(n.to));
   if (item) return item.label;
-  if (path.startsWith('/change-password')) return 'Change password';
+  if (path.startsWith('/change-password')) return 'Şifre değiştir';
   return 'Eventium';
 }
