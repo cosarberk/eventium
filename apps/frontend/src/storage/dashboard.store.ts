@@ -77,6 +77,8 @@ interface DashboardState {
   updateBlockSlots: (id: ID, slots: Record<string, BlockSlot>) => void;
   /** Replaces a block's static component options. */
   updateBlockOptions: (id: ID, options: Record<string, unknown>) => void;
+  /** Moves a block up/down in paint order (z-order on the free canvas). */
+  reorderBlock: (id: ID, dir: -1 | 1) => void;
   /** Sets a block's free-canvas frame (absolute px geometry) in its options. */
   updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
   /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
@@ -337,6 +339,25 @@ export const useDashboardStore = create<DashboardState>()(
           selectedBlockId: lastId,
         });
         return clones.map((c) => c.id);
+      },
+
+      reorderBlock: (id, dir) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const blocks = [...dashboard.blocks];
+        const i = blocks.findIndex((b) => b.id === id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= blocks.length) return;
+        const a = blocks[i];
+        const b = blocks[j];
+        if (!a || !b) return;
+        blocks[i] = b;
+        blocks[j] = a;
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
       },
 
       updateBlockFrame: (id, frame) => {

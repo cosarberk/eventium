@@ -21,13 +21,14 @@ import { BlockInspector } from '@/components/design/BlockInspector';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 import { CodeEditor } from './CodeEditor';
+import { OutlinePanel } from './OutlinePanel';
 import { Palette } from './Palette';
 
 const BlueprintCanvas = lazy(() =>
   import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
 );
 
-const LAYOUT_KEY = 'eventium-dock-layout-v1';
+const LAYOUT_KEY = 'eventium-dock-layout-v2';
 
 /** Open (or focus) a control's code/blueprint document. */
 function openDoc(
@@ -59,6 +60,11 @@ function ToolboxPanel() {
       <Palette />
     </div>
   );
+}
+
+/** Outline / layers document. */
+function OutlineDoc() {
+  return <OutlinePanel />;
 }
 
 /** Designer document — the canvas. */
@@ -151,6 +157,7 @@ const COMPONENTS = {
   code: CodePanel,
   blueprint: BlueprintPanel,
   toolbox: ToolboxPanel,
+  outline: OutlineDoc,
   properties: PropertiesPanel,
 };
 
@@ -181,6 +188,12 @@ export function StudioDock() {
         component: 'toolbox',
         title: 'Araç Kutusu',
         position: { referencePanel: 'designer', direction: 'left' },
+      });
+      api.addPanel({
+        id: 'outline',
+        component: 'outline',
+        title: 'Anahat',
+        position: { referencePanel: 'toolbox', direction: 'below' },
       });
       api.addPanel({
         id: 'properties',
