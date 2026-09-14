@@ -21,15 +21,17 @@ import { BlockInspector } from '@/components/design/BlockInspector';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 import { CodeEditor } from './CodeEditor';
+import { ConsolePanel } from './ConsolePanel';
 import { DataSourcesPanel } from './DataSourcesPanel';
 import { OutlinePanel } from './OutlinePanel';
 import { Palette } from './Palette';
+import { ProblemsPanel } from './ProblemsPanel';
 
 const BlueprintCanvas = lazy(() =>
   import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
 );
 
-const LAYOUT_KEY = 'eventium-dock-layout-v3';
+const LAYOUT_KEY = 'eventium-dock-layout-v4';
 
 /** Builds the default tool-window layout (used on first load and on reset). */
 function applyDefaultLayout(api: DockviewApi) {
@@ -58,7 +60,20 @@ function applyDefaultLayout(api: DockviewApi) {
     title: 'Veri & Kaynaklar',
     position: { referencePanel: 'properties', direction: 'within' },
   });
+  api.addPanel({
+    id: 'problems',
+    component: 'problems',
+    title: 'Sorunlar',
+    position: { referencePanel: 'designer', direction: 'below' },
+  });
+  api.addPanel({
+    id: 'console',
+    component: 'console',
+    title: 'Konsol',
+    position: { referencePanel: 'problems', direction: 'within' },
+  });
   api.getPanel('properties')?.api.setActive();
+  api.getPanel('problems')?.api.setActive();
 }
 
 /** A tool window's identity for the View toolbar. */
@@ -72,6 +87,8 @@ const TOOL_WINDOWS: {
   { id: 'outline', component: 'outline', title: 'Anahat', dir: 'left' },
   { id: 'properties', component: 'properties', title: 'Özellikler', dir: 'right' },
   { id: 'data', component: 'data', title: 'Veri & Kaynaklar', dir: 'right' },
+  { id: 'problems', component: 'problems', title: 'Sorunlar', dir: 'below' },
+  { id: 'console', component: 'console', title: 'Konsol', dir: 'below' },
 ];
 
 /** Reopen a tool window if closed, otherwise focus it. */
@@ -129,6 +146,16 @@ function OutlineDoc() {
 /** Data & Sources document. */
 function DataDoc() {
   return <DataSourcesPanel />;
+}
+
+/** Problems document. */
+function ProblemsDoc() {
+  return <ProblemsPanel />;
+}
+
+/** Console document. */
+function ConsoleDoc() {
+  return <ConsolePanel />;
 }
 
 /** Designer document — the canvas. */
@@ -223,6 +250,8 @@ const COMPONENTS = {
   toolbox: ToolboxPanel,
   outline: OutlineDoc,
   data: DataDoc,
+  problems: ProblemsDoc,
+  console: ConsoleDoc,
   properties: PropertiesPanel,
 };
 
