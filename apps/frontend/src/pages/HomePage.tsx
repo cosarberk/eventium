@@ -87,8 +87,15 @@ export function HomePage() {
               key={d.id}
               type="button"
               onClick={() => open(d)}
-              className="group flex min-h-[128px] flex-col rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-brand-500/50 hover:shadow-lg"
+              style={
+                { '--type-accent': type?.accent ?? 'var(--color-brand-500)' } as React.CSSProperties
+              }
+              className="group relative flex min-h-[128px] flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] p-4 pt-5 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--type-accent)] hover:shadow-lg"
             >
+              <span
+                className="absolute inset-x-0 top-0 h-1"
+                style={{ backgroundColor: 'var(--type-accent)' }}
+              />
               <div className="flex items-center gap-2">
                 <span className="text-xl">{type?.icon ?? '📊'}</span>
                 <span className="rounded bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
