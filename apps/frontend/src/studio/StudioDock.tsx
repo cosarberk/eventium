@@ -21,6 +21,7 @@ import { BlockInspector } from '@/components/design/BlockInspector';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 import { CodeEditor } from './CodeEditor';
+import { DataSourcesPanel } from './DataSourcesPanel';
 import { OutlinePanel } from './OutlinePanel';
 import { Palette } from './Palette';
 
@@ -28,7 +29,7 @@ const BlueprintCanvas = lazy(() =>
   import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
 );
 
-const LAYOUT_KEY = 'eventium-dock-layout-v2';
+const LAYOUT_KEY = 'eventium-dock-layout-v3';
 
 /** Builds the default tool-window layout (used on first load and on reset). */
 function applyDefaultLayout(api: DockviewApi) {
@@ -51,6 +52,13 @@ function applyDefaultLayout(api: DockviewApi) {
     title: 'Özellikler',
     position: { referencePanel: 'designer', direction: 'right' },
   });
+  api.addPanel({
+    id: 'data',
+    component: 'data',
+    title: 'Veri & Kaynaklar',
+    position: { referencePanel: 'properties', direction: 'within' },
+  });
+  api.getPanel('properties')?.api.setActive();
 }
 
 /** A tool window's identity for the View toolbar. */
@@ -63,6 +71,7 @@ const TOOL_WINDOWS: {
   { id: 'toolbox', component: 'toolbox', title: 'Araç Kutusu', dir: 'left' },
   { id: 'outline', component: 'outline', title: 'Anahat', dir: 'left' },
   { id: 'properties', component: 'properties', title: 'Özellikler', dir: 'right' },
+  { id: 'data', component: 'data', title: 'Veri & Kaynaklar', dir: 'right' },
 ];
 
 /** Reopen a tool window if closed, otherwise focus it. */
@@ -115,6 +124,11 @@ function ToolboxPanel() {
 /** Outline / layers document. */
 function OutlineDoc() {
   return <OutlinePanel />;
+}
+
+/** Data & Sources document. */
+function DataDoc() {
+  return <DataSourcesPanel />;
 }
 
 /** Designer document — the canvas. */
@@ -208,6 +222,7 @@ const COMPONENTS = {
   blueprint: BlueprintPanel,
   toolbox: ToolboxPanel,
   outline: OutlineDoc,
+  data: DataDoc,
   properties: PropertiesPanel,
 };
 
