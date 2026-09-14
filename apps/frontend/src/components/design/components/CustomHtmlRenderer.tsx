@@ -49,9 +49,13 @@ function render({ block, data }: ComponentRenderProps) {
   // Escape `<` so no data string can break out of the bootstrap <script>.
   const payload = JSON.stringify({ data: items, title: block.title }).replace(/</g, '\\u003c');
 
+  const panelName = JSON.stringify(block.title || 'HTML paneli');
+  const errScript = `(function(){function s(m){try{parent.postMessage({__eventium_error:{panel:${panelName},message:String(m)}},'*')}catch(_){}}window.addEventListener('error',function(e){s(e.message)});window.addEventListener('unhandledrejection',function(e){s(e.reason)})})();`;
+
   const srcDoc = `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https:; font-src data:">
 <style>html,body{margin:0;height:100%;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#111}*{box-sizing:border-box}@media (prefers-color-scheme:dark){html,body{color:#e8e8ea}}</style>
+<script>${errScript}</script>
 </head><body>
 <script>window.EVENTIUM=${payload};</script>
 ${html}

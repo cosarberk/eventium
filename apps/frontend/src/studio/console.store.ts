@@ -56,4 +56,14 @@ export function installConsoleCapture() {
   window.addEventListener('unhandledrejection', (e) =>
     logConsole('error', `İşlenmeyen promise reddi: ${String((e as PromiseRejectionEvent).reason)}`),
   );
+  // Errors postMessage'd from sandboxed custom-code panels.
+  window.addEventListener('message', (e) => {
+    const data = (e as MessageEvent).data as {
+      __eventium_error?: { panel?: string; message?: string };
+    };
+    if (data && typeof data === 'object' && data.__eventium_error) {
+      const { panel, message } = data.__eventium_error;
+      logConsole('error', `[${panel ?? 'panel'}] ${message ?? 'hata'}`);
+    }
+  });
 }
