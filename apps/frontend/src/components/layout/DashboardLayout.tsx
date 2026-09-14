@@ -7,7 +7,7 @@
  * never scrolls; only the document area does. Fully responsive: on mobile the
  * rail/inspector collapse and navigation moves into a drawer.
  */
-import { Outlet } from '@tanstack/react-router';
+import { Outlet, useRouterState } from '@tanstack/react-router';
 import { BlueprintOverlay } from '@/components/blueprint/BlueprintEditor';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { QueryBuilderOverlay } from '@/components/query/QueryBuilder';
@@ -22,6 +22,11 @@ import { WorkspaceDock } from '@/studio/WorkspaceDock';
 
 /** The full authenticated workspace. */
 export function DashboardLayout() {
+  // The Boards route is a full docking workspace (own Toolbox/Properties/panel),
+  // so the shell's separate Inspector + bottom dock are hidden there.
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const isStudio = path.startsWith('/boards');
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
       <MenuBar />
@@ -36,10 +41,10 @@ export function DashboardLayout() {
               <Outlet />
             </div>
           </div>
-          <WorkspaceDock />
+          {!isStudio && <WorkspaceDock />}
         </main>
 
-        <Inspector />
+        {!isStudio && <Inspector />}
       </div>
 
       <StatusBar />

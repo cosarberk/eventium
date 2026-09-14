@@ -1,40 +1,26 @@
 /**
- * @fileoverview Studio canvas editor.
+ * @fileoverview Studio editor page.
  *
- * The user drags components from the {@link Palette} (focused by the project's
- * type) onto the canvas, or clicks to append. The canvas honours the project's
- * layout mode — `free` lets blocks sit anywhere (desktop-app feel), `grid` packs
- * them. Blocks render through the design registry via {@link BlockGrid},
- * identical to the live/TV views. Selecting a block opens the
- * {@link BlockInspector}. Layout, content and variables persist on save.
+ * In edit mode the whole workspace is a docking window manager ({@link StudioDock})
+ * — dockable/splittable/floatable Toolbox, Designer, Code, Blueprint and
+ * Properties documents (Visual Studio / AvalonDock style). Read-only view shows
+ * the designer surface. Layout, content and variables persist on save.
  */
 import { AnimatePresence, motion } from 'framer-motion';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { BlockGrid } from '@/components/design/BlockGrid';
 import { PageShareControls } from '@/components/design/PageShareControls';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
-import { useUIStore } from '@/storage/ui.store';
-import { CodeEditor } from '@/studio/CodeEditor';
-import { EditorArea } from '@/studio/EditorArea';
-import { FreeCanvas } from '@/studio/FreeCanvas';
-import { Palette } from '@/studio/Palette';
-import { readProjectTypeId } from '@/studio/project';
-import { getProjectType } from '@/studio/project-types';
-import { type Buffer, bufferId, useWorkspaceStore } from '@/studio/workspace.store';
-// Side-effect: ensure components are registered before listing them.
+import { CanvasSurface } from '@/studio/CanvasSurface';
+import { StudioDock } from '@/studio/StudioDock';
+// Side-effect: ensure components are registered.
 import '@/components/design/components';
 
-/** Inline blueprint editor, lazy so React Flow stays out of the main bundle. */
-const BlueprintCanvas = lazy(() =>
-  import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
-);
-
-/** Main page builder. */
+/** Main studio editor. */
 export function DashboardPage() {
   const {
     activeDashboard,
@@ -44,8 +30,6 @@ export function DashboardPage() {
     setDashboards,
     setActiveDashboard,
     toggleEditMode,
-    removeBlock,
-    updateBlockLayout,
     createDashboard,
     deleteDashboard: deleteDashboardMutation,
     updateDashboard: updateDashboardMutation,
@@ -53,150 +37,30 @@ export function DashboardPage() {
     isCreating,
   } = useDashboard();
 
-  const addBlock = useDashboardStore((s) => s.addBlock);
-  const addBlockWithFrame = useDashboardStore((s) => s.addBlockWithFrame);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
-  const selectedBlockId = useDashboardStore((s) => s.selectedBlockId);
   const undo = useDashboardStore((s) => s.undo);
   const redo = useDashboardStore((s) => s.redo);
   const canUndo = useDashboardStore((s) => s.past.length > 0);
   const canRedo = useDashboardStore((s) => s.future.length > 0);
-  const setInspectorOpen = useUIStore((s) => s.setInspectorOpen);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
 
-  const openBuffer = useWorkspaceStore((s) => s.openBuffer);
-  const pruneBlocks = useWorkspaceStore((s) => s.pruneBlocks);
-  const resetWorkspace = useWorkspaceStore((s) => s.reset);
-
-  /** Canvas layout mode from the active project's type (grid/free/flow). */
-  const layoutMode =
-    getProjectType(readProjectTypeId(activeDashboard?.layout))?.layoutMode ?? 'grid';
-
   /** Sync server pages into the store. */
   useEffect(() => {
-    if (dashboards.length > 0) {
-      setDashboards(dashboards);
-    }
+    if (dashboards.length > 0) setDashboards(dashboards);
   }, [dashboards, setDashboards]);
 
   // Load the page's persisted runtime variables when the active page changes.
   useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
-  const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
+  const blocks = activeDashboard?.blocks ?? [];
 
-  /** Open a control's code-behind as a document (in the active tab group). */
-  const openCode = (id: string) => {
-    const b = blocks.find((x) => x.id === id);
-    openBuffer({
-      id: bufferId('code', id),
-      kind: 'code',
-      blockId: id,
-      title: `${b?.title || b?.componentType || 'Bileşen'} · Kod`,
-    });
-  };
-
-  /** The designer buffer content — the free viewport or the grid artboard. */
-  const renderCanvas = () =>
-    layoutMode === 'free' ? (
-      <FreeCanvas
-        blocks={blocks}
-        editing={isEditMode}
-        selectedId={selectedBlockId}
-        onSelect={(id) => {
-          selectBlock(id);
-          if (id) setInspectorOpen(true);
-        }}
-        onOpenEditor={(id) => {
-          selectBlock(id);
-          openCode(id);
-        }}
-        onRemove={removeBlock}
-        onConfigure={(id) => {
-          selectBlock(id);
-          setInspectorOpen(true);
-        }}
-        onAddAt={(type, x, y) => {
-          addBlockWithFrame(type, { x, y });
-          setInspectorOpen(true);
-        }}
-      />
-    ) : (
-      <div className="relative h-full overflow-auto bg-[var(--color-bg-secondary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
-        <BlockGrid
-          blocks={blocks}
-          editing={isEditMode}
-          layoutMode={layoutMode}
-          selectedId={selectedBlockId}
-          onExternalDrop={(type, at) => {
-            addBlock(type, at);
-            setInspectorOpen(true);
-          }}
-          onSelectBlock={(id) => {
-            selectBlock(id);
-            setInspectorOpen(true);
-          }}
-          onOpenBlockEditor={(id) => {
-            selectBlock(id);
-            openCode(id);
-          }}
-          onLayoutChange={updateBlockLayout}
-          onRemoveBlock={removeBlock}
-          onConfigureBlock={(id) => {
-            selectBlock(id);
-            setInspectorOpen(true);
-          }}
-        />
-        {isEditMode && blocks.length === 0 && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 text-center">
-            <span className="text-3xl opacity-40">⬚</span>
-            <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
-              Paletten bir bileşeni buraya <b>sürükle-bırak</b>. Çift tık → kod/blueprint.
-            </p>
-          </div>
-        )}
-      </div>
-    );
-
-  /** Renders a document buffer's content (designer / code / blueprint). */
-  const renderBuffer = (buffer: Buffer) => {
-    if (buffer.kind === 'designer') return renderCanvas();
-    const block = blocks.find((b) => b.id === buffer.blockId);
-    if (!block) {
-      return (
-        <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
-          Bileşen bulunamadı
-        </div>
-      );
-    }
-    if (buffer.kind === 'code') return <CodeEditor block={block} />;
-    return (
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
-            Blueprint yükleniyor…
-          </div>
-        }
-      >
-        <BlueprintCanvas />
-      </Suspense>
-    );
-  };
-
-  // Close buffers whose block was deleted.
+  /** Leaving edit mode clears the selection. */
   useEffect(() => {
-    pruneBlocks(blocks.map((b) => b.id));
-  }, [blocks, pruneBlocks]);
-
-  /** Leaving edit mode clears the selection + resets the document well. */
-  useEffect(() => {
-    if (!isEditMode) {
-      selectBlock(null);
-      resetWorkspace();
-    }
-  }, [isEditMode, selectBlock, resetWorkspace]);
+    if (!isEditMode) selectBlock(null);
+  }, [isEditMode, selectBlock]);
 
   /** Undo/redo keyboard shortcuts (edit mode; ignored while typing in a field). */
   useEffect(() => {
@@ -299,9 +163,9 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           {renaming ? (
             <input
@@ -341,7 +205,7 @@ export function DashboardPage() {
           )}
 
           <div className="flex items-center gap-1 ml-1">
-            <IconButton title="New page" onClick={() => setShowCreateModal(true)}>
+            <IconButton title="Yeni sayfa" onClick={() => setShowCreateModal(true)}>
               <path
                 d="M7 2v10M2 7h10"
                 stroke="currentColor"
@@ -351,7 +215,7 @@ export function DashboardPage() {
             </IconButton>
             {isEditMode && (
               <>
-                <IconButton title="Rename page" onClick={startRename}>
+                <IconButton title="Yeniden adlandır" onClick={startRename}>
                   <path
                     d="M10 1.5l2.5 2.5L4 12.5H1.5V10L10 1.5z"
                     stroke="currentColor"
@@ -360,7 +224,7 @@ export function DashboardPage() {
                     strokeLinejoin="round"
                   />
                 </IconButton>
-                <IconButton title="Delete page" danger onClick={handleDelete}>
+                <IconButton title="Sayfayı sil" danger onClick={handleDelete}>
                   <path
                     d="M2 3.5h10M5 3.5V2a1 1 0 011-1h2a1 1 0 011 1v1.5M11 3.5v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-8"
                     stroke="currentColor"
@@ -437,7 +301,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Document area — canvas + per-component code/blueprint editor tabs */}
+      {/* Workspace — docking manager (edit) or read-only designer (view) */}
       {!isEditMode && blocks.length === 0 ? (
         <EmptyState
           title="Boş sayfa"
@@ -445,16 +309,8 @@ export function DashboardPage() {
           className="h-[50vh]"
         />
       ) : (
-        <div className="space-y-2">
-          {/* Toolbox (palette) + document well (tab groups / split) */}
-          {isEditMode ? (
-            <div className="flex h-[72vh] gap-3">
-              <Palette />
-              <EditorArea renderBuffer={renderBuffer} />
-            </div>
-          ) : (
-            <div className="h-[72vh]">{renderCanvas()}</div>
-          )}
+        <div className="h-[calc(100vh-200px)] min-h-[440px] overflow-hidden rounded-xl border border-[var(--color-border-primary)]">
+          {isEditMode ? <StudioDock /> : <CanvasSurface editing={false} />}
         </div>
       )}
 
