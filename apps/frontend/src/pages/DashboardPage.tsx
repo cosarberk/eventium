@@ -9,7 +9,7 @@
  * {@link BlockInspector}. Layout, content and variables persist on save.
  */
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -19,13 +19,20 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useUIStore } from '@/storage/ui.store';
-import { ComponentEditorPane } from '@/studio/ComponentEditorPane';
+import { CodeEditor } from '@/studio/CodeEditor';
+import { EditorArea } from '@/studio/EditorArea';
 import { FreeCanvas } from '@/studio/FreeCanvas';
 import { Palette } from '@/studio/Palette';
 import { readProjectTypeId } from '@/studio/project';
 import { getProjectType } from '@/studio/project-types';
+import { type Buffer, bufferId, useWorkspaceStore } from '@/studio/workspace.store';
 // Side-effect: ensure components are registered before listing them.
 import '@/components/design/components';
+
+/** Inline blueprint editor, lazy so React Flow stays out of the main bundle. */
+const BlueprintCanvas = lazy(() =>
+  import('@/components/blueprint/BlueprintModal').then((m) => ({ default: m.BlueprintCanvas })),
+);
 
 /** Main page builder. */
 export function DashboardPage() {
@@ -59,10 +66,10 @@ export function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  /** Component code/blueprint editors open as document tabs (VS-style). */
-  const [editorTabs, setEditorTabs] = useState<string[]>([]);
-  /** Active document view: 'canvas' or a block id whose editor tab is open. */
-  const [activeView, setActiveView] = useState<string>('canvas');
+
+  const openBuffer = useWorkspaceStore((s) => s.openBuffer);
+  const pruneBlocks = useWorkspaceStore((s) => s.pruneBlocks);
+  const resetWorkspace = useWorkspaceStore((s) => s.reset);
 
   /** Canvas layout mode from the active project's type (grid/free/flow). */
   const layoutMode =
@@ -79,30 +86,117 @@ export function DashboardPage() {
   useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
 
   const blocks = useMemo(() => activeDashboard?.blocks ?? [], [activeDashboard]);
-  // Only keep editor tabs whose block still exists.
-  const openTabs = editorTabs.filter((id) => blocks.some((b) => b.id === id));
-  const activeEditorBlock =
-    activeView !== 'canvas' ? (blocks.find((b) => b.id === activeView) ?? null) : null;
 
-  /** Open (or focus) a component's editor as a document tab. */
-  const openEditor = (id: string) => {
-    setEditorTabs((t) => (t.includes(id) ? t : [...t, id]));
-    setActiveView(id);
-  };
-  /** Close an editor tab; fall back to the canvas when it was active. */
-  const closeEditor = (id: string) => {
-    setEditorTabs((t) => t.filter((x) => x !== id));
-    setActiveView((v) => (v === id ? 'canvas' : v));
+  /** Open a control's code-behind as a document (in the active tab group). */
+  const openCode = (id: string) => {
+    const b = blocks.find((x) => x.id === id);
+    openBuffer({
+      id: bufferId('code', id),
+      kind: 'code',
+      blockId: id,
+      title: `${b?.title || b?.componentType || 'Bileşen'} · Kod`,
+    });
   };
 
-  /** Leaving edit mode clears the selection + closes all editor tabs. */
+  /** The designer buffer content — the free viewport or the grid artboard. */
+  const renderCanvas = () =>
+    layoutMode === 'free' ? (
+      <FreeCanvas
+        blocks={blocks}
+        editing={isEditMode}
+        selectedId={selectedBlockId}
+        onSelect={(id) => {
+          selectBlock(id);
+          if (id) setInspectorOpen(true);
+        }}
+        onOpenEditor={(id) => {
+          selectBlock(id);
+          openCode(id);
+        }}
+        onRemove={removeBlock}
+        onConfigure={(id) => {
+          selectBlock(id);
+          setInspectorOpen(true);
+        }}
+        onAddAt={(type, x, y) => {
+          addBlockWithFrame(type, { x, y });
+          setInspectorOpen(true);
+        }}
+      />
+    ) : (
+      <div className="relative h-full overflow-auto bg-[var(--color-bg-secondary)] p-2 [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
+        <BlockGrid
+          blocks={blocks}
+          editing={isEditMode}
+          layoutMode={layoutMode}
+          selectedId={selectedBlockId}
+          onExternalDrop={(type, at) => {
+            addBlock(type, at);
+            setInspectorOpen(true);
+          }}
+          onSelectBlock={(id) => {
+            selectBlock(id);
+            setInspectorOpen(true);
+          }}
+          onOpenBlockEditor={(id) => {
+            selectBlock(id);
+            openCode(id);
+          }}
+          onLayoutChange={updateBlockLayout}
+          onRemoveBlock={removeBlock}
+          onConfigureBlock={(id) => {
+            selectBlock(id);
+            setInspectorOpen(true);
+          }}
+        />
+        {isEditMode && blocks.length === 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 text-center">
+            <span className="text-3xl opacity-40">⬚</span>
+            <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
+              Paletten bir bileşeni buraya <b>sürükle-bırak</b>. Çift tık → kod/blueprint.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+
+  /** Renders a document buffer's content (designer / code / blueprint). */
+  const renderBuffer = (buffer: Buffer) => {
+    if (buffer.kind === 'designer') return renderCanvas();
+    const block = blocks.find((b) => b.id === buffer.blockId);
+    if (!block) {
+      return (
+        <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
+          Bileşen bulunamadı
+        </div>
+      );
+    }
+    if (buffer.kind === 'code') return <CodeEditor block={block} />;
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
+            Blueprint yükleniyor…
+          </div>
+        }
+      >
+        <BlueprintCanvas />
+      </Suspense>
+    );
+  };
+
+  // Close buffers whose block was deleted.
+  useEffect(() => {
+    pruneBlocks(blocks.map((b) => b.id));
+  }, [blocks, pruneBlocks]);
+
+  /** Leaving edit mode clears the selection + resets the document well. */
   useEffect(() => {
     if (!isEditMode) {
       selectBlock(null);
-      setEditorTabs([]);
-      setActiveView('canvas');
+      resetWorkspace();
     }
-  }, [isEditMode, selectBlock]);
+  }, [isEditMode, selectBlock, resetWorkspace]);
 
   /** Undo/redo keyboard shortcuts (edit mode; ignored while typing in a field). */
   useEffect(() => {
@@ -352,104 +446,14 @@ export function DashboardPage() {
         />
       ) : (
         <div className="space-y-2">
-          {/* Document tab bar (VS-style) — appears once an editor is open */}
-          {isEditMode && openTabs.length > 0 && (
-            <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--color-border-primary)] pb-px">
-              <DocTab active={activeView === 'canvas'} onClick={() => setActiveView('canvas')}>
-                ◇ Canvas
-              </DocTab>
-              {openTabs.map((id) => {
-                const b = blocks.find((x) => x.id === id);
-                return (
-                  <DocTab
-                    key={id}
-                    active={activeView === id}
-                    onClick={() => setActiveView(id)}
-                    onClose={() => closeEditor(id)}
-                  >
-                    {'</> '}
-                    {b?.title || b?.componentType}
-                  </DocTab>
-                );
-              })}
-            </div>
-          )}
-
-          {activeEditorBlock ? (
-            /* Full-width component editor (code / blueprint) */
-            <div className="flex">
-              <ComponentEditorPane
-                block={activeEditorBlock}
-                onClose={() => closeEditor(activeEditorBlock.id)}
-              />
+          {/* Toolbox (palette) + document well (tab groups / split) */}
+          {isEditMode ? (
+            <div className="flex h-[72vh] gap-3">
+              <Palette />
+              <EditorArea renderBuffer={renderBuffer} />
             </div>
           ) : (
-            /* Canvas view: palette + surface (free viewport or grid artboard) */
-            <div className="flex gap-4">
-              {isEditMode && <Palette />}
-              <div className="min-w-0 flex-1">
-                {layoutMode === 'free' ? (
-                  <FreeCanvas
-                    blocks={blocks}
-                    editing={isEditMode}
-                    selectedId={selectedBlockId}
-                    onSelect={(id) => {
-                      selectBlock(id);
-                      if (id) setInspectorOpen(true);
-                    }}
-                    onOpenEditor={(id) => {
-                      selectBlock(id);
-                      openEditor(id);
-                    }}
-                    onRemove={removeBlock}
-                    onConfigure={(id) => {
-                      selectBlock(id);
-                      setInspectorOpen(true);
-                    }}
-                    onAddAt={(type, x, y) => {
-                      addBlockWithFrame(type, { x, y });
-                      setInspectorOpen(true);
-                    }}
-                  />
-                ) : (
-                  <div className="relative rounded-xl bg-[var(--color-bg-secondary)] p-2 ring-1 ring-inset ring-[var(--color-border-primary)] [background-image:radial-gradient(var(--color-border-primary)_1px,transparent_1px)] [background-size:16px_16px]">
-                    <BlockGrid
-                      blocks={blocks}
-                      editing={isEditMode}
-                      layoutMode={layoutMode}
-                      selectedId={selectedBlockId}
-                      onExternalDrop={(type, at) => {
-                        addBlock(type, at);
-                        setInspectorOpen(true);
-                      }}
-                      onSelectBlock={(id) => {
-                        selectBlock(id);
-                        setInspectorOpen(true);
-                      }}
-                      onOpenBlockEditor={(id) => {
-                        selectBlock(id);
-                        openEditor(id);
-                      }}
-                      onLayoutChange={updateBlockLayout}
-                      onRemoveBlock={removeBlock}
-                      onConfigureBlock={(id) => {
-                        selectBlock(id);
-                        setInspectorOpen(true);
-                      }}
-                    />
-                    {isEditMode && blocks.length === 0 && (
-                      <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[420px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border-secondary)] text-center">
-                        <span className="text-3xl opacity-40">⬚</span>
-                        <p className="max-w-xs text-sm text-[var(--color-text-tertiary)]">
-                          Paletten bir bileşeni buraya <b>sürükle-bırak</b>. Çift tık →
-                          kod/blueprint.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <div className="h-[72vh]">{renderCanvas()}</div>
           )}
         </div>
       )}
@@ -504,43 +508,6 @@ function IconButton({
         {children}
       </svg>
     </button>
-  );
-}
-
-/** A document tab (Canvas / a component's code editor). */
-function DocTab({
-  active,
-  onClick,
-  onClose,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  onClose?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`flex shrink-0 items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-medium transition-colors ${
-        active
-          ? 'border border-b-0 border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)]'
-          : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
-      }`}
-    >
-      <button type="button" onClick={onClick} className="max-w-[180px] truncate">
-        {children}
-      </button>
-      {onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Sekmeyi kapat"
-          className="text-[var(--color-text-tertiary)] transition-colors hover:text-red-500"
-        >
-          ×
-        </button>
-      )}
-    </div>
   );
 }
 

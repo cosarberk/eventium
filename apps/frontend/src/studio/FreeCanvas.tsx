@@ -504,7 +504,7 @@ export function FreeCanvas({
     // biome-ignore lint/a11y/noStaticElementInteractions: pan/marquee surface; block controls provide keyboard access
     <div
       ref={containerRef}
-      className="relative h-[70vh] w-full overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)]"
+      className="relative h-full min-h-[400px] w-full overflow-hidden bg-[var(--color-bg-secondary)]"
       onWheel={onWheel}
       onPointerDown={onBackgroundPointerDown}
       onDragOver={(e) => {
