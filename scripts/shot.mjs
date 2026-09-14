@@ -71,6 +71,16 @@ try {
     }
   }
 
+  // Optionally add a component by palette label (e.g. SHOT_ADD="Stat").
+  if (process.env.SHOT_ADD) {
+    await page
+      .locator('aside button', { hasText: process.env.SHOT_ADD })
+      .first()
+      .click()
+      .catch(() => log('palette item not found:', process.env.SHOT_ADD));
+    await page.waitForTimeout(1400);
+  }
+
   await page.screenshot({ path: out, fullPage: false });
   log('saved', out, '(url:', page.url(), ')');
 } finally {
