@@ -88,15 +88,16 @@ const TOOL_WINDOWS: {
   id: string;
   component: string;
   title: string;
+  glyph: string;
   dir: 'left' | 'right' | 'below' | 'within';
 }[] = [
-  { id: 'toolbox', component: 'toolbox', title: 'Araç Kutusu', dir: 'left' },
-  { id: 'outline', component: 'outline', title: 'Anahat', dir: 'left' },
-  { id: 'preview', component: 'preview', title: 'Önizleme', dir: 'within' },
-  { id: 'properties', component: 'properties', title: 'Özellikler', dir: 'right' },
-  { id: 'data', component: 'data', title: 'Veri & Kaynaklar', dir: 'right' },
-  { id: 'problems', component: 'problems', title: 'Sorunlar', dir: 'below' },
-  { id: 'console', component: 'console', title: 'Konsol', dir: 'below' },
+  { id: 'toolbox', component: 'toolbox', title: 'Araç Kutusu', glyph: '🧰', dir: 'left' },
+  { id: 'outline', component: 'outline', title: 'Anahat', glyph: '☰', dir: 'left' },
+  { id: 'preview', component: 'preview', title: 'Önizleme', glyph: '▶', dir: 'within' },
+  { id: 'properties', component: 'properties', title: 'Özellikler', glyph: '⚙', dir: 'right' },
+  { id: 'data', component: 'data', title: 'Veri', glyph: '🔌', dir: 'right' },
+  { id: 'problems', component: 'problems', title: 'Sorunlar', glyph: '⚠', dir: 'below' },
+  { id: 'console', component: 'console', title: 'Konsol', glyph: '⌗', dir: 'below' },
 ];
 
 /** Reopen a tool window if closed, otherwise focus it. */
@@ -328,15 +329,19 @@ export function StudioDock() {
   return (
     <div className="flex h-full w-full flex-col">
       {/* View toolbar — reopen tool windows + reset layout */}
-      <div className="flex items-center gap-1 border-b border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] px-2 py-1 text-[11px]">
-        <span className="px-1 text-[var(--color-text-tertiary)]">Görünüm</span>
+      <div className="flex items-center gap-1 border-b border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] px-2 py-1">
+        <span className="mr-1 flex items-center gap-1 pl-1 pr-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          Pencereler
+        </span>
         {TOOL_WINDOWS.map((w) => (
           <button
             key={w.id}
             type="button"
+            title={`${w.title} — aç/odakla`}
             onClick={() => apiRef.current && ensureToolWindow(apiRef.current, w)}
-            className="rounded px-2 py-0.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+            className="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-primary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
           >
+            <span className="text-[11px] leading-none opacity-80">{w.glyph}</span>
             {w.title}
           </button>
         ))}
@@ -344,8 +349,18 @@ export function StudioDock() {
         <button
           type="button"
           onClick={resetLayout}
-          className="rounded px-2 py-0.5 text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+          title="Pencere yerleşimini varsayılana döndür"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
         >
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path
+              d="M3 7a4 4 0 104-4M3 7V4M3 7h3"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           Yerleşimi sıfırla
         </button>
       </div>
