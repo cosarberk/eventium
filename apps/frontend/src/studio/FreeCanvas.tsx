@@ -25,6 +25,7 @@ import { BlockContent } from '@/components/design/BlockRenderer';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 import { useCanvasStatusStore } from './canvas-status.store';
+import { TOOLS, useToolStore } from './tool.store';
 
 /** Absolute canvas geometry, in surface pixels. */
 export interface Frame {
@@ -125,6 +126,10 @@ export function FreeCanvas({
   const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
   const addClones = useDashboardStore((s) => s.addClones);
   const clipboard = useRef<DashboardBlock[]>([]);
+  const tool = useToolStore((s) => s.tool);
+  const setTool = useToolStore((s) => s.setTool);
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
 
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
@@ -296,11 +301,32 @@ export function FreeCanvas({
     }
   };
 
+  /** Begin a pan drag from a client point. */
+  const beginPan = (clientX: number, clientY: number) => {
+    drag.current = { mode: 'pan', startX: clientX, startY: clientY, startTx: tx, startTy: ty };
+    document.body.style.cursor = 'grabbing';
+  };
+
+  /** Zoom by a factor around a client point. */
+  const zoomAt = (clientX: number, clientY: number, factor: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const px = clientX - (rect?.left ?? 0);
+    const py = clientY - (rect?.top ?? 0);
+    const ns = Math.min(3, Math.max(0.2, scale * factor));
+    setTx(px - ((px - tx) * ns) / scale);
+    setTy(py - ((py - ty) * ns) / scale);
+    setScale(ns);
+  };
+
   const startMove = (e: ReactPointerEvent, b: DashboardBlock) => {
     if (!editing) return;
     const target = e.target as HTMLElement;
     if (target.closest('.eventium-no-drag') || target.closest('[data-handle]')) return;
     e.stopPropagation();
+    if (toolRef.current === 'hand') {
+      beginPan(e.clientX, e.clientY);
+      return;
+    }
 
     if (e.shiftKey) {
       // Toggle in the selection; no drag.
@@ -350,16 +376,19 @@ export function FreeCanvas({
 
   const onBackgroundPointerDown = (e: ReactPointerEvent) => {
     if (e.target !== e.currentTarget) return;
-    if (e.altKey || e.button === 1) {
-      // Pan.
-      drag.current = {
-        mode: 'pan',
-        startX: e.clientX,
-        startY: e.clientY,
-        startTx: tx,
-        startTy: ty,
-      };
-      document.body.style.cursor = 'grabbing';
+    // Middle button or Hand tool → pan.
+    if (e.button === 1 || toolRef.current === 'hand') {
+      beginPan(e.clientX, e.clientY);
+      return;
+    }
+    // Zoom tool → zoom at the click (Alt = out).
+    if (toolRef.current === 'zoom') {
+      zoomAt(e.clientX, e.clientY, e.altKey ? 1 / 1.2 : 1.2);
+      return;
+    }
+    // Alt-drag pans even with the Select tool.
+    if (e.altKey) {
+      beginPan(e.clientX, e.clientY);
       return;
     }
     // Marquee select.
@@ -487,6 +516,23 @@ export function FreeCanvas({
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, sel, blocks, addClones, onSelect]);
 
+  // ── Tool shortcuts (V / H / Z) ──
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const def = TOOLS.find((td) => td.key === e.key.toLowerCase());
+      if (def) {
+        setTool(def.id);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing, setTool]);
+
   const mq = marquee
     ? {
         x: Math.min(marquee.x0, marquee.x1),
@@ -505,6 +551,7 @@ export function FreeCanvas({
     <div
       ref={containerRef}
       className="relative h-full min-h-[400px] w-full overflow-hidden bg-[var(--color-bg-secondary)]"
+      style={{ cursor: tool === 'hand' ? 'grab' : tool === 'zoom' ? 'zoom-in' : 'default' }}
       onWheel={onWheel}
       onPointerDown={onBackgroundPointerDown}
       onDragOver={(e) => {
@@ -518,6 +565,52 @@ export function FreeCanvas({
         }
       }}
     >
+      {/* Tool strip (Photoshop-style) */}
+      {editing && (
+        <div className="absolute left-2 top-2 z-20 flex flex-col gap-1 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 p-1 shadow-md backdrop-blur">
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTool(t.id)}
+              title={`${t.label} (${t.shortcut})`}
+              aria-label={t.label}
+              className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                tool === t.id
+                  ? 'bg-brand-500 text-white'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d={t.icon}
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Options bar (active tool context) */}
+      {editing && (
+        <div className="absolute left-14 top-2 z-20 flex items-center gap-2 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]/95 px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)] shadow-sm backdrop-blur">
+          <span className="font-medium text-[var(--color-text-primary)]">
+            {TOOLS.find((t) => t.id === tool)?.label}
+          </span>
+          <span className="text-[var(--color-text-tertiary)]">
+            {tool === 'select'
+              ? 'Sürükle=taşı · boş=seç · Shift=çoklu'
+              : tool === 'hand'
+                ? 'Sürükle=kaydır'
+                : 'Tıkla=yakınlaş · Alt=uzaklaş'}
+          </span>
+        </div>
+      )}
+
       {/* Transformed surface */}
       <div
         className="absolute left-0 top-0 origin-top-left"
