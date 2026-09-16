@@ -50,10 +50,18 @@ const emitOpenPage = (page: { id: string; name: string }) =>
 export function ExplorerPanel() {
   const activeProject = useDashboardStore((s) => s.activeProject);
   const addPage = useDashboardStore((s) => s.addPage);
+  const renamePageInProject = useDashboardStore((s) => s.renamePageInProject);
   const removePageFromProject = useDashboardStore((s) => s.removePageFromProject);
   const activePageId = useDashboardStore((s) => s.activeDashboard?.id);
   const { nodes, isLoading, createNode, renameNode, deleteNode, moveNode, duplicateNode } =
     useNodes(activeProject?.id);
+
+  /** Rename a node; if it's a page, keep the open project's page name in sync. */
+  const handleRename = async (id: string, name: string) => {
+    const node = nodes.find((n) => n.id === id);
+    await renameNode({ id, name });
+    if (node?.kind === 'page' && node.refId) renamePageInProject(node.refId, name);
+  };
 
   /** Delete a node; if it's a page, also drop it from the open project. */
   const handleDelete = async (id: string) => {
@@ -205,7 +213,7 @@ export function ExplorerPanel() {
               activePageId={activePageId}
               onOpenPage={openNode}
               onNewFile={emitNewFile}
-              onRename={(id, name) => renameNode({ id, name })}
+              onRename={handleRename}
               onDelete={(id) => handleDelete(id)}
               onMove={handleMove}
               renamingId={renamingId}

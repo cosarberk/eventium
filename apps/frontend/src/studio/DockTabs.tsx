@@ -7,7 +7,7 @@
  * title header of their own. Replaces dockview's default tab.
  */
 import type { IDockviewPanelHeaderProps } from 'dockview-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSourceCapabilities } from '@/hooks/useSourceCapabilities';
 import { useDashboardStore } from '@/storage/dashboard.store';
@@ -73,8 +73,15 @@ function PanelBadge({ id }: { id: string }) {
 
 /** The studio's tab renderer for every dock panel. */
 export function StudioTab(props: IDockviewPanelHeaderProps) {
-  const title = props.api.title ?? '';
+  // Track the title as state so runtime renames (setTitle) re-render the tab.
+  const [title, setTitle] = useState(props.api.title ?? '');
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    setTitle(props.api.title ?? '');
+    const disp = props.api.onDidTitleChange((e) => setTitle(e.title ?? ''));
+    return () => disp.dispose();
+  }, [props.api]);
 
   /** Panels sharing this tab's group. */
   const groupPanels = () => props.api.group?.panels ?? [];

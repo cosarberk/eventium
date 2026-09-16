@@ -678,7 +678,7 @@ export function StudioDock() {
   const canRedo = useDashboardStore((s) => s.future.length > 0);
   const dirty = useDashboardStore((s) => s.dirty);
   const { saveLayout } = useDashboard();
-  const { createNode } = useNodes(activeProject?.id);
+  const { createNode, nodes } = useNodes(activeProject?.id);
   const [perspective, setPerspective] = useState<string>('design');
 
   const handleSave = () => {
@@ -800,6 +800,34 @@ export function StudioDock() {
       }
     }
   }, [activeProject?.pages]);
+
+  // Keep open document tabs in sync with the project tree: relabel on rename,
+  // close file documents whose node was deleted. One reconciliation against the
+  // single source of truth (pages + nodes) beats threading rename/delete events.
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    const pages = activeProject?.pages ?? [];
+    for (const panel of api.panels) {
+      const [kind, id] = panel.id.split(':');
+      if (panel.id === 'designer' || kind === 'designer') {
+        const pageId = panel.id === 'designer' ? anchorPageIdRef.current : id;
+        const page = pages.find((p) => p.id === pageId);
+        if (page && panel.title !== page.name) panel.setTitle(page.name);
+      } else if (kind === 'file' && id) {
+        const node = nodes.find((n) => n.id === id);
+        // Guard against the transient empty list during a refetch.
+        if (!node && nodes.length > 0) {
+          panel.api.close();
+          continue;
+        }
+        if (!node) continue;
+        const type = getFileType(node.kind);
+        const title = type ? `${node.name}.${type.extension}` : node.name;
+        if (panel.title !== title) panel.setTitle(title);
+      }
+    }
+  }, [nodes, activeProject?.pages]);
 
   const resetLayout = () => {
     const api = apiRef.current;

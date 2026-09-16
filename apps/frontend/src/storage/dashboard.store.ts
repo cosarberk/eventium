@@ -76,6 +76,7 @@ interface DashboardState {
    * Removes a page from the open project (after it was deleted). If it was the
    * active page, switches to another page, or leaves none (empty-project state).
    */
+  renamePageInProject: (pageId: ID, name: string) => void;
   removePageFromProject: (pageId: ID) => void;
   /** Closes the open project and returns to the start screen. */
   closeProject: () => void;
@@ -216,6 +217,18 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       clearDirty: () => set({ dirty: false }),
+
+      renamePageInProject: (pageId, name) => {
+        const { activeProject, activeDashboard } = get();
+        if (!activeProject) return;
+        const pages = activeProject.pages.map((p) => (p.id === pageId ? { ...p, name } : p));
+        set({
+          activeProject: { ...activeProject, pages },
+          ...(activeDashboard?.id === pageId
+            ? { activeDashboard: { ...activeDashboard, name } }
+            : {}),
+        });
+      },
 
       removePageFromProject: (pageId) => {
         const { activeProject, activeDashboard } = get();
