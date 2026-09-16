@@ -163,6 +163,12 @@ export function CommandPalette() {
         });
       }
       list.push({
+        id: 'run',
+        group: 'Dosya',
+        label: 'Çalıştır (önizleme)',
+        run: () => emit('eventium:run'),
+      });
+      list.push({
         id: 'blueprint',
         group: 'Görünüm',
         label: 'Blueprint',
