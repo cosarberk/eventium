@@ -52,6 +52,8 @@ export function ExplorerPanel() {
     activeProject?.id,
   );
   const [dropRoot, setDropRoot] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; node: ProjectNode | null } | null>(null);
 
   const tree = useMemo(() => buildTree(nodes), [nodes]);
 
@@ -98,10 +100,17 @@ export function ExplorerPanel() {
     }
   };
 
-  const newFolder = async () => {
+  const newFolder = async (parentId: string | null = null) => {
     const name = window.prompt('Klasör adı');
     if (!name?.trim() || !activeProject) return;
-    await createNode({ projectId: activeProject.id, kind: 'folder', name: name.trim() });
+    await createNode({ projectId: activeProject.id, parentId, kind: 'folder', name: name.trim() });
+  };
+
+  /** Open the right-click menu for a node (or empty space when node is null). */
+  const openMenu = (e: React.MouseEvent, node: ProjectNode | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ x: e.clientX, y: e.clientY, node });
   };
 
   if (!activeProject) {
@@ -137,7 +146,7 @@ export function ExplorerPanel() {
           </button>
           <button
             type="button"
-            onClick={newFolder}
+            onClick={() => void newFolder(null)}
             title="Yeni klasör"
             className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
           >
@@ -167,6 +176,7 @@ export function ExplorerPanel() {
           const dragId = e.dataTransfer.getData('application/eventium-node');
           if (dragId) handleMove(dragId, null);
         }}
+        onContextMenu={(e) => openMenu(e, null)}
       >
         {isLoading ? (
           <p className="px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">Yükleniyor…</p>
@@ -184,11 +194,109 @@ export function ExplorerPanel() {
               onRename={(id, name) => renameNode({ id, name })}
               onDelete={(id) => deleteNode(id)}
               onMove={handleMove}
+              renamingId={renamingId}
+              onStartEdit={setRenamingId}
+              onEndEdit={() => setRenamingId(null)}
+              onContextMenu={openMenu}
             />
           ))
         )}
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          node={menu.node}
+          onClose={() => setMenu(null)}
+          onNewFile={(parentId) => emitNewFile(parentId)}
+          onNewFolder={(parentId) => void newFolder(parentId)}
+          onOpen={(n) => openNode(n)}
+          onRename={(id) => setRenamingId(id)}
+          onDelete={(id) => deleteNode(id)}
+        />
+      )}
     </div>
+  );
+}
+
+/** The right-click context menu. */
+function ContextMenu({
+  x,
+  y,
+  node,
+  onClose,
+  onNewFile,
+  onNewFolder,
+  onOpen,
+  onRename,
+  onDelete,
+}: {
+  x: number;
+  y: number;
+  node: ProjectNode | null;
+  onClose: () => void;
+  onNewFile: (parentId: string | null) => void;
+  onNewFolder: (parentId: string | null) => void;
+  onOpen: (n: ProjectNode) => void;
+  onRename: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const isFolder = node?.kind === 'folder';
+  const parentForNew = node ? (isFolder ? node.id : (node.parentId ?? null)) : null;
+  const items: { label: string; danger?: boolean; run: () => void }[] = [];
+  if (node && !isFolder) items.push({ label: 'Aç', run: () => onOpen(node) });
+  items.push({ label: 'Yeni dosya…', run: () => onNewFile(parentForNew) });
+  items.push({ label: 'Yeni klasör…', run: () => onNewFolder(parentForNew) });
+  if (node) {
+    items.push({ label: 'Yeniden adlandır', run: () => onRename(node.id) });
+    items.push({
+      label: 'Sil',
+      danger: true,
+      run: () => {
+        if (window.confirm(`"${node.name}" silinsin mi?`)) onDelete(node.id);
+      },
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Menüyü kapat"
+        className="fixed inset-0 z-[60] cursor-default"
+        onClick={onClose}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+      />
+      <div
+        className="fixed z-[61] min-w-[168px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] py-1 shadow-xl"
+        style={{
+          left: Math.min(x, window.innerWidth - 180),
+          top: Math.min(y, window.innerHeight - 180),
+        }}
+      >
+        {items.map((it) => (
+          <button
+            key={it.label}
+            type="button"
+            onClick={() => {
+              onClose();
+              it.run();
+            }}
+            className={`flex w-full items-center px-3 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-surface-hover)] ${
+              it.danger
+                ? 'text-red-400 hover:text-red-400'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -202,6 +310,10 @@ function TreeItem({
   onRename,
   onDelete,
   onMove,
+  renamingId,
+  onStartEdit,
+  onEndEdit,
+  onContextMenu,
 }: {
   node: TreeNode;
   depth: number;
@@ -211,17 +323,21 @@ function TreeItem({
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onMove: (dragId: string, parentId: string | null) => void;
+  renamingId: string | null;
+  onStartEdit: (id: string) => void;
+  onEndEdit: () => void;
+  onContextMenu: (e: React.MouseEvent, node: ProjectNode) => void;
 }) {
   const isFolder = node.kind === 'folder';
   const type = getFileType(node.kind);
   const [open, setOpen] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(node.name);
   const [dropHere, setDropHere] = useState(false);
+  const editing = renamingId === node.id;
   const isActive = node.kind === 'page' && node.refId && node.refId === activePageId;
 
   const commit = () => {
-    setEditing(false);
+    onEndEdit();
     const v = name.trim();
     if (v && v !== node.name) onRename(node.id, v);
     else setName(node.name);
@@ -232,6 +348,7 @@ function TreeItem({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: drag row + folder drop target */}
       <div
         draggable={!editing}
+        onContextMenu={(e) => onContextMenu(e, node)}
         onDragStart={(e) => {
           e.stopPropagation();
           e.dataTransfer.setData('application/eventium-node', node.id);
@@ -304,7 +421,7 @@ function TreeItem({
               if (e.key === 'Enter') commit();
               if (e.key === 'Escape') {
                 setName(node.name);
-                setEditing(false);
+                onEndEdit();
               }
             }}
             className="min-w-0 flex-1 rounded border border-brand-500 bg-[var(--color-bg-primary)] px-1 py-0 text-[12px] text-[var(--color-text-primary)] outline-none"
@@ -315,7 +432,7 @@ function TreeItem({
           <button
             type="button"
             onClick={() => (isFolder ? setOpen((v) => !v) : onOpenPage(node))}
-            onDoubleClick={() => setEditing(true)}
+            onDoubleClick={() => onStartEdit(node.id)}
             className="min-w-0 flex-1 truncate text-left"
           >
             {isFolder ? node.name : fileLabel(node.kind, node.name)}
@@ -368,6 +485,10 @@ function TreeItem({
             onRename={onRename}
             onDelete={onDelete}
             onMove={onMove}
+            renamingId={renamingId}
+            onStartEdit={onStartEdit}
+            onEndEdit={onEndEdit}
+            onContextMenu={onContextMenu}
           />
         ))}
     </div>
