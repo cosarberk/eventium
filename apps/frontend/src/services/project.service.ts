@@ -10,7 +10,9 @@ import {
   CREATE_PAGE,
   CREATE_PROJECT,
   DELETE_PROJECT,
+  EXPORT_PROJECT,
   GET_PROJECTS,
+  IMPORT_PROJECT,
   UPDATE_PROJECT,
 } from '@/api/graphql';
 import type { Dashboard, Project } from '@/types';
@@ -55,4 +57,18 @@ export async function createPage(projectId: string, name: string): Promise<Dashb
   const result = await urqlClient.mutation(CREATE_PAGE, { projectId, name }).toPromise();
   if (result.error) throw new Error(result.error.message);
   return result.data.createPage as Dashboard;
+}
+
+/** Export a project to a portable spec object. */
+export async function exportProject(id: string): Promise<unknown> {
+  const result = await urqlClient.query(EXPORT_PROJECT, { id }).toPromise();
+  if (result.error) throw new Error(result.error.message);
+  return result.data.exportProject;
+}
+
+/** Recreate a project from an exported spec. */
+export async function importProject(spec: unknown): Promise<Project> {
+  const result = await urqlClient.mutation(IMPORT_PROJECT, { spec }).toPromise();
+  if (result.error) throw new Error(result.error.message);
+  return result.data.importProject as Project;
 }

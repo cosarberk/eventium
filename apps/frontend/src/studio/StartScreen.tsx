@@ -8,10 +8,11 @@
  * straight into the full-screen studio workspace.
  */
 import { useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useProjects } from '@/hooks/useProjects';
+import { exportProject, importProject } from '@/services/project.service';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { Project } from '@/types';
 import { getProjectType } from './project-types';
@@ -19,9 +20,16 @@ import { getProjectType } from './project-types';
 /** The studio start screen. */
 export function StartScreen() {
   const navigate = useNavigate();
-  const { projects: allProjects, isLoading, updateProject, deleteProject } = useProjects();
+  const {
+    projects: allProjects,
+    isLoading,
+    updateProject,
+    deleteProject,
+    refetchProjects,
+  } = useProjects();
   const openProject = useDashboardStore((s) => s.openProject);
   const [q, setQ] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const renameProject = (p: Project) => {
     const name = window.prompt('Proje adı', p.name);
@@ -37,6 +45,34 @@ export function StartScreen() {
       toast.success('Proje silindi');
     } catch (e) {
       toast.error(`Silinemedi: ${(e as Error).message}`);
+    }
+  };
+
+  /** Export a project to a downloaded `.eproj.json` file. */
+  const doExport = async (p: Project) => {
+    try {
+      const spec = await exportProject(p.id);
+      const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${p.name.replace(/[^\p{L}\p{N}_-]+/gu, '_')}.eproj.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(`Dışa aktarılamadı: ${(e as Error).message}`);
+    }
+  };
+
+  /** Import a project from a chosen `.json` file. */
+  const doImport = async (file: File) => {
+    try {
+      const spec = JSON.parse(await file.text());
+      await importProject(spec);
+      await refetchProjects();
+      toast.success('Proje içe aktarıldı');
+    } catch (e) {
+      toast.error(`İçe aktarılamadı: ${(e as Error).message}`);
     }
   };
 
@@ -125,6 +161,34 @@ export function StartScreen() {
               </span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-left text-[11px] text-[var(--color-text-secondary)] transition-colors hover:border-brand-500/40 hover:text-[var(--color-text-primary)]"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M8 10V2M5 5l3-3 3 3M2.5 10v3a.5.5 0 00.5.5h10a.5.5 0 00.5-.5v-3"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Dosyadan içe aktar (.json)
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void doImport(f);
+              e.target.value = '';
+            }}
+          />
 
           <div className="mt-auto flex flex-wrap gap-2 pt-2">
             {[
@@ -245,6 +309,32 @@ export function StartScreen() {
                         >
                           <path
                             d="M10 1.5l2.5 2.5L4 12.5H1.5V10L10 1.5z"
+                            stroke="currentColor"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Dışa aktar"
+                        title="Dışa aktar (.json)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void doExport(d);
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M7 9V2M4 5l3 3 3-3M2 10v2a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-2"
                             stroke="currentColor"
                             strokeWidth="1.2"
                             strokeLinecap="round"

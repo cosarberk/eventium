@@ -136,4 +136,141 @@ export class ProjectService {
       include: pageWithBlocks,
     });
   }
+
+  /**
+   * Export a project to a portable spec: its meta, its file tree, and each page's
+   * blocks. Ids are replaced with temp ids so it can be re-imported anywhere.
+   */
+  async export(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) return null;
+    const nodes = await this.prisma.node.findMany({
+      where: { projectId: id },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+    });
+    const pages = await this.prisma.dashboard.findMany({
+      where: { projectId: id },
+      include: { blocks: { orderBy: { sortOrder: 'asc' } } },
+    });
+    const pageById = new Map(pages.map((p) => [p.id, p]));
+
+    // Assign temp ids to nodes and map real→temp for parent/refs.
+    const tempOf = new Map<string, string>();
+    nodes.forEach((n, i) => {
+      tempOf.set(n.id, `n${i}`);
+    });
+
+    return {
+      version: 1,
+      project: { name: project.name, type: project.type, description: project.description },
+      nodes: nodes.map((n) => {
+        const page = n.refId ? pageById.get(n.refId) : undefined;
+        return {
+          tempId: tempOf.get(n.id),
+          parentTempId: n.parentId ? (tempOf.get(n.parentId) ?? null) : null,
+          kind: n.kind,
+          name: n.name,
+          order: n.order,
+          data: n.data,
+          page: page
+            ? {
+                layout: page.layout,
+                blocks: page.blocks.map((b) => ({
+                  componentType: b.componentType,
+                  title: b.title,
+                  slots: b.slots,
+                  options: b.options,
+                  position: b.position,
+                  size: b.size,
+                  sortOrder: b.sortOrder,
+                })),
+              }
+            : null,
+        };
+      }),
+    };
+  }
+
+  /** Recreate a project from an exported spec (new ids throughout). */
+  async import(ownerId: string, spec: ProjectExport) {
+    const type = spec.project.type ?? 'dashboard';
+    const project = await this.prisma.project.create({
+      data: {
+        name: spec.project.name || 'İçe aktarılan proje',
+        type,
+        description: spec.project.description ?? '',
+        ownerId,
+      },
+    });
+
+    // Create nodes parent-before-child (spec order is a stable topological-ish
+    // order since children come after parents in the export), mapping temp→real.
+    const realOf = new Map<string, string>();
+    let pageOrder = 0;
+    for (const n of spec.nodes) {
+      let refId: string | null = null;
+      if (n.kind === 'page' && n.page) {
+        const page = await this.prisma.dashboard.create({
+          data: {
+            name: n.name,
+            projectId: project.id,
+            pageOrder: pageOrder++,
+            layout: (n.page.layout ?? { projectType: type }) as Prisma.InputJsonValue,
+            blocks: {
+              create: (n.page.blocks ?? []).map((b, i) => ({
+                componentType: b.componentType,
+                title: b.title ?? '',
+                slots: (b.slots ?? {}) as Prisma.InputJsonValue,
+                options: (b.options ?? {}) as Prisma.InputJsonValue,
+                position: (b.position ?? { x: 0, y: 0 }) as Prisma.InputJsonValue,
+                size: (b.size ?? { w: 6, h: 4 }) as Prisma.InputJsonValue,
+                sortOrder: b.sortOrder ?? i,
+              })),
+            },
+          },
+        });
+        refId = page.id;
+      }
+      const created = await this.prisma.node.create({
+        data: {
+          projectId: project.id,
+          parentId: n.parentTempId ? (realOf.get(n.parentTempId) ?? null) : null,
+          kind: n.kind,
+          name: n.name,
+          order: n.order ?? 0,
+          refId,
+          data: (n.kind === 'page' ? {} : (n.data ?? {})) as Prisma.InputJsonValue,
+        },
+      });
+      if (n.tempId) realOf.set(n.tempId, created.id);
+    }
+
+    return this.findById(project.id);
+  }
+}
+
+/** The shape produced by {@link ProjectService.export}. */
+export interface ProjectExport {
+  version: number;
+  project: { name: string; type?: string; description?: string };
+  nodes: Array<{
+    tempId?: string;
+    parentTempId?: string | null;
+    kind: string;
+    name: string;
+    order?: number;
+    data?: unknown;
+    page?: {
+      layout?: unknown;
+      blocks?: Array<{
+        componentType: string;
+        title?: string;
+        slots?: unknown;
+        options?: unknown;
+        position?: unknown;
+        size?: unknown;
+        sortOrder?: number;
+      }>;
+    } | null;
+  }>;
 }

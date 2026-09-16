@@ -181,6 +181,33 @@ export const moveNodeSchema = z.object({
 /** `setNodeData` content — an arbitrary JSON object (bounded). */
 export const nodeDataSchema = z.record(z.string().max(128), z.unknown());
 
+/** A node in a project-export spec. */
+const exportNodeSchema = z.object({
+  tempId: z.string().max(64).optional(),
+  parentTempId: z.string().max(64).nullish(),
+  kind: nodeKindSchema,
+  name: nodeNameSchema,
+  order: z.coerce.number().int().min(0).max(100_000).optional(),
+  data: z.unknown().optional(),
+  page: z
+    .object({
+      layout: z.unknown().optional(),
+      blocks: z.array(z.unknown()).max(500).optional(),
+    })
+    .nullish(),
+});
+
+/** `importProject` spec (from a project export file). */
+export const projectExportSchema = z.object({
+  version: z.coerce.number().int(),
+  project: z.object({
+    name: z.string().trim().min(1).max(128),
+    type: projectTypeSchema.optional(),
+    description: z.string().max(1024).optional(),
+  }),
+  nodes: z.array(exportNodeSchema).max(2000),
+});
+
 /** `installPlugin` input. */
 export const installPluginSchema = z.object({
   pluginId: z

@@ -320,6 +320,9 @@ export const typeDefs = `
     """List a project's file-system tree (flat; assemble by parentId)."""
     nodes(projectId: ID!): [Node!]!
 
+    """Export a whole project (tree + pages + blocks) to a portable spec (JSON)."""
+    exportProject(id: ID!): JSON!
+
     """Export a page to a portable, instance-agnostic PageSpec (JSON)."""
     exportPage(id: ID!): JSON!
 
@@ -348,6 +351,9 @@ export const typeDefs = `
 
     """Create a project (with one empty starter page)."""
     createProject(input: CreateProjectInput!): Project!
+
+    """Recreate a project from an exported spec (JSON)."""
+    importProject(spec: JSON!): Project!
 
     """Update a project's name/type/description."""
     updateProject(id: ID!, input: UpdateProjectInput!): Project!

@@ -153,6 +153,13 @@ export const GET_NODES = gql`
   }
 `;
 
+/** Exports a whole project to a portable spec (JSON). */
+export const EXPORT_PROJECT = gql`
+  query ExportProject($id: ID!) {
+    exportProject(id: $id)
+  }
+`;
+
 /** Fetches all projects with their pages. */
 export const GET_PROJECTS = gql`
   query GetProjects {

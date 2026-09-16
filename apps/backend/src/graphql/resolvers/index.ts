@@ -52,6 +52,7 @@ import {
   moveNodeSchema,
   nodeDataSchema,
   parseInput,
+  projectExportSchema,
   renameNodeSchema,
   sourceMappingSchema,
   tokenSchema,
@@ -222,6 +223,11 @@ export function buildResolvers() {
         return ctx.nodeService.listForProject(parseInput(idSchema, args.projectId, 'projectId'));
       },
 
+      exportProject: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.projectService.export(parseInput(idSchema, args.id, 'id'));
+      },
+
       exportPage: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
         requireMinRole(ctx, 'EDITOR');
         return ctx.portabilityService.exportPage(parseInput(idSchema, args.id, 'id'));
@@ -289,6 +295,15 @@ export function buildResolvers() {
         return ctx.projectService.create(
           user.sub,
           parseInput(createProjectSchema, args.input, 'project input'),
+        );
+      },
+
+      importProject: async (_root: unknown, args: { spec: unknown }, ctx: GqlContext) => {
+        const user = requireMinRole(ctx, 'EDITOR');
+        const spec = parseInput(projectExportSchema, args.spec, 'project export');
+        return ctx.projectService.import(
+          user.sub,
+          spec as Parameters<typeof ctx.projectService.import>[1],
         );
       },
 

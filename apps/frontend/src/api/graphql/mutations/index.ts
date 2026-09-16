@@ -102,6 +102,13 @@ export const DELETE_PROJECT = gql`
   }
 `;
 
+/** Recreates a project from an exported spec. */
+export const IMPORT_PROJECT = gql`
+  mutation ImportProject($spec: JSON!) {
+    importProject(spec: $spec) { ${PROJECT_FIELDS} }
+  }
+`;
+
 /** Adds a new empty page to a project. */
 export const CREATE_PAGE = gql`
   mutation CreatePage($projectId: ID!, $name: String!) {
