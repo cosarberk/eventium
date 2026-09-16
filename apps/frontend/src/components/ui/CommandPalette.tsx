@@ -223,6 +223,12 @@ export function CommandPalette() {
 
     // ── Hesap ──
     list.push({
+      id: 'shortcuts',
+      group: 'Hesap',
+      label: 'Klavye kısayolları',
+      run: () => emit('eventium:shortcuts'),
+    });
+    list.push({
       id: 'change-password',
       group: 'Hesap',
       label: 'Şifre değiştir',

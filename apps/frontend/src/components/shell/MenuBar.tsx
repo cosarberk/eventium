@@ -244,6 +244,12 @@ export function MenuBar() {
       id: 'help',
       label: 'Yardım',
       entries: [
+        {
+          kind: 'item',
+          label: 'Klavye kısayolları',
+          shortcut: '?',
+          onClick: () => emit('eventium:shortcuts'),
+        },
         { kind: 'item', label: 'Komut paleti', shortcut: '⌘K', onClick: openPalette },
         {
           kind: 'item',

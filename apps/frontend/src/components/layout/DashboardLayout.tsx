@@ -18,6 +18,7 @@ import { TabStrip } from '@/components/shell/TabStrip';
 import { ToolRail } from '@/components/shell/ToolRail';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { RunOverlay } from '@/studio/RunOverlay';
+import { ShortcutsOverlay } from '@/studio/ShortcutsOverlay';
 
 /** The full authenticated workspace. */
 export function DashboardLayout() {
@@ -57,6 +58,7 @@ export function DashboardLayout() {
       <QueryBuilderOverlay />
       <BlueprintOverlay />
       <RunOverlay />
+      <ShortcutsOverlay />
       <MobileNav />
     </div>
   );
