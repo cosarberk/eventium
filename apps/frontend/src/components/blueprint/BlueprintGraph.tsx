@@ -24,8 +24,10 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { parseFieldRef } from '@eventium/shared';
 import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import { getComponent, listComponentDescriptors } from '@/components/design/registry';
@@ -61,6 +63,89 @@ function blocksToNodes(blocks: readonly DashboardBlock[], selectedId: string | n
   });
 }
 
+/** The distinct data-source types a block is bound to (from its slot bindings). */
+function blockSourceTypes(b: DashboardBlock): string[] {
+  const types = new Set<string>();
+  for (const slot of Object.values(b.slots)) {
+    for (const value of slot.values ?? []) {
+      const ref = value.binding?.ref;
+      const parsed = ref ? parseFieldRef(ref) : null;
+      if (parsed) types.add(parsed.sourceType);
+    }
+  }
+  return [...types];
+}
+
+/**
+ * Derive data-source nodes and their edges into the blocks that bind them.
+ * A source node sits left of the blocks that consume it; the edge shows the
+ * live data flow (source → component).
+ */
+function deriveDataFlow(
+  blocks: readonly DashboardBlock[],
+  nodePos: Map<string, { x: number; y: number }>,
+): { sourceNodes: Node[]; sourceEdges: Edge[] } {
+  const consumers = new Map<string, string[]>(); // sourceType -> blockIds
+  for (const b of blocks) {
+    for (const st of blockSourceTypes(b)) {
+      const list = consumers.get(st) ?? [];
+      list.push(b.id);
+      consumers.set(st, list);
+    }
+  }
+  const sourceNodes: Node[] = [];
+  const sourceEdges: Edge[] = [];
+  let i = 0;
+  for (const [sourceType, blockIds] of consumers) {
+    // No colon in the id — React Flow uses it internally for handle lookup.
+    const id = `dsrc-${sourceType}`;
+    // Place the source to the left of the topmost consumer it feeds.
+    const ys = blockIds.map((bid) => nodePos.get(bid)?.y ?? 80);
+    const minY = Math.min(...ys);
+    sourceNodes.push({
+      id,
+      type: 'source',
+      position: { x: -240, y: minY + i * 20 },
+      draggable: true,
+      data: { sourceType },
+    });
+    for (const bid of blockIds) {
+      sourceEdges.push({
+        id: `flow-${sourceType}-${bid}`,
+        source: id,
+        target: bid,
+        animated: true,
+        style: { stroke: 'var(--color-accent-500)' },
+      });
+    }
+    i += 1;
+  }
+  return { sourceNodes, sourceEdges };
+}
+
+/** A data-source node card (cyan accent — it's the data inlet). */
+function SourceNode({ data }: NodeProps) {
+  const d = data as { sourceType: string };
+  return (
+    <div className="min-w-[130px] rounded-lg border border-[var(--color-accent-500)]/60 bg-[var(--color-bg-elevated)] px-3 py-2 shadow-md">
+      <div className="mb-0.5 flex items-center gap-1.5">
+        <span className="text-sm leading-none">🗄️</span>
+        <span className="rounded bg-[var(--color-accent-500)]/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-accent-500)]">
+          Kaynak
+        </span>
+      </div>
+      <div className="truncate text-[12px] font-medium text-[var(--color-text-primary)]">
+        {d.sourceType}
+      </div>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!h-2.5 !w-2.5 !bg-[var(--color-accent-500)]"
+      />
+    </div>
+  );
+}
+
 /** A component node card. */
 function ComponentNode({ data, selected }: NodeProps) {
   const d = data as { icon: string; label: string; title: string };
@@ -85,7 +170,7 @@ function ComponentNode({ data, selected }: NodeProps) {
   );
 }
 
-const nodeTypes = { component: ComponentNode };
+const nodeTypes = { component: ComponentNode, source: SourceNode };
 
 /** The live component graph. */
 function Graph({ focusBlockId }: { focusBlockId?: string }) {
@@ -106,20 +191,47 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(toFlowEdges(savedEdges));
   const dragging = useRef(false);
 
-  // Blocks → nodes (kept live; skipped mid-drag so dragging stays smooth).
+  // Blocks → nodes + derived data-source nodes, set into state so React Flow
+  // owns stable node objects (needed for edge handle measurement).
   // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on block/selection content
   useEffect(() => {
     if (dragging.current) return;
-    setNodes(blocksToNodes(blocks, selectedId));
+    const compNodes = blocksToNodes(blocks, selectedId);
+    const pos = new Map(compNodes.map((n) => [n.id, n.position]));
+    const { sourceNodes } = deriveDataFlow(blocks, pos);
+    setNodes([...compNodes, ...sourceNodes]);
   }, [blocks, selectedId, setNodes]);
 
-  // Saved edges → graph edges.
+  // Saved (user) edges + derived data-flow edges → set into edge state.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on blocks/edges content
   useEffect(() => {
-    setEdges(toFlowEdges(savedEdges));
-  }, [savedEdges, setEdges]);
+    const compNodes = blocksToNodes(blocks, selectedId);
+    const pos = new Map(compNodes.map((n) => [n.id, n.position]));
+    const { sourceEdges } = deriveDataFlow(blocks, pos);
+    setEdges([...toFlowEdges(savedEdges), ...sourceEdges]);
+  }, [savedEdges, blocks, setEdges]);
 
   const persist = (next: Edge[]) =>
-    setBlueprintEdges(next.map((e) => ({ id: e.id, source: e.source, target: e.target })));
+    setBlueprintEdges(
+      next
+        .filter((e) => !e.id.startsWith('flow-'))
+        .map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    );
+
+  const allNodes = nodes;
+  const allEdges = edges;
+
+  // Refit when the node count changes (e.g. a data-source node appears), so
+  // newly derived nodes/edges come into view.
+  const { fitView } = useReactFlow();
+  const countRef = useRef(0);
+  useEffect(() => {
+    if (allNodes.length !== countRef.current) {
+      countRef.current = allNodes.length;
+      const t = setTimeout(() => fitView({ padding: 0.4, duration: 200 }), 60);
+      return () => clearTimeout(t);
+    }
+  }, [allNodes.length, fitView]);
 
   const addComponent = (type: string) => {
     const n = blocks.length;
@@ -128,16 +240,20 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
 
   return (
     <ReactFlow
-      nodes={nodes}
-      edges={edges}
+      nodes={allNodes}
+      edges={allEdges}
       nodeTypes={nodeTypes}
       onNodesChange={(changes) => {
-        onNodesChange(changes);
-        for (const ch of changes) if (ch.type === 'remove') removeBlock(ch.id);
+        // Ignore changes to derived source nodes; only real blocks mutate.
+        const real = changes.filter((c) => !('id' in c) || !c.id.startsWith('dsrc-'));
+        onNodesChange(real);
+        for (const ch of real) if (ch.type === 'remove') removeBlock(ch.id);
       }}
       onEdgesChange={(changes) => {
-        onEdgesChange(changes);
-        const removed = changes.filter((c) => c.type === 'remove').map((c) => c.id);
+        // Derived flow edges (flow:*) are read-only; only user edges persist.
+        const real = changes.filter((c) => !('id' in c) || !c.id.startsWith('flow-'));
+        onEdgesChange(real);
+        const removed = real.filter((c) => c.type === 'remove').map((c) => c.id);
         if (removed.length) persist(edges.filter((e) => !removed.includes(e.id)));
       }}
       onConnect={(c: Connection) => {
@@ -145,7 +261,9 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
         setEdges(next);
         persist(next);
       }}
-      onNodeClick={(_, n) => selectBlock(n.id)}
+      onNodeClick={(_, n) => {
+        if (!n.id.startsWith('dsrc-')) selectBlock(n.id);
+      }}
       onNodeDragStart={() => {
         dragging.current = true;
       }}
