@@ -9,6 +9,7 @@
  */
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useProjects } from '@/hooks/useProjects';
 import { useDashboardStore } from '@/storage/dashboard.store';
@@ -18,9 +19,26 @@ import { getProjectType } from './project-types';
 /** The studio start screen. */
 export function StartScreen() {
   const navigate = useNavigate();
-  const { projects: allProjects, isLoading } = useProjects();
+  const { projects: allProjects, isLoading, updateProject, deleteProject } = useProjects();
   const openProject = useDashboardStore((s) => s.openProject);
   const [q, setQ] = useState('');
+
+  const renameProject = (p: Project) => {
+    const name = window.prompt('Proje adı', p.name);
+    if (name?.trim() && name.trim() !== p.name)
+      updateProject({ id: p.id, input: { name: name.trim() } });
+  };
+
+  const removeProject = async (p: Project) => {
+    if (!window.confirm(`"${p.name}" projesi ve tüm sayfaları silinsin mi? Bu geri alınamaz.`))
+      return;
+    try {
+      await deleteProject(p.id);
+      toast.success('Proje silindi');
+    } catch (e) {
+      toast.error(`Silinemedi: ${(e as Error).message}`);
+    }
+  };
 
   const projects = useMemo(() => {
     const list = [...(allProjects ?? [])].sort((a, b) =>
@@ -159,16 +177,24 @@ export function StartScreen() {
                 const type = getProjectType(d.type);
                 const updated = d.updatedAt ? new Date(d.updatedAt) : null;
                 return (
-                  <button
+                  // biome-ignore lint/a11y/useSemanticElements: nested action buttons forbid a <button> card
+                  <div
                     key={d.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => open(d)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        open(d);
+                      }
+                    }}
                     style={
                       {
                         '--type-accent': type?.accent ?? 'var(--color-brand-500)',
                       } as React.CSSProperties
                     }
-                    className="group relative flex min-h-[132px] flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] p-4 pt-5 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--type-accent)] hover:shadow-lg"
+                    className="group relative flex min-h-[132px] cursor-pointer flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] p-4 pt-5 text-left transition-all hover:-translate-y-0.5 hover:border-[var(--type-accent)] hover:shadow-lg"
                   >
                     <span
                       className="absolute inset-x-0 top-0 h-1 opacity-80 transition-opacity group-hover:opacity-100"
@@ -197,7 +223,63 @@ export function StartScreen() {
                     <span className="pointer-events-none absolute bottom-3 right-3 text-[10px] font-semibold text-[var(--type-accent)] opacity-0 transition-opacity group-hover:opacity-100">
                       Aç →
                     </span>
-                  </button>
+
+                    {/* Hover actions (rename / delete) */}
+                    <span className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        aria-label="Yeniden adlandır"
+                        title="Yeniden adlandır"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          renameProject(d);
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M10 1.5l2.5 2.5L4 12.5H1.5V10L10 1.5z"
+                            stroke="currentColor"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Sil"
+                        title="Sil"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeProject(d);
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-red-400"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2 3.5h10M5 3.5V2a1 1 0 011-1h2a1 1 0 011 1v1.5M11 3.5v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-8"
+                            stroke="currentColor"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </span>
+                  </div>
                 );
               })}
             </div>
