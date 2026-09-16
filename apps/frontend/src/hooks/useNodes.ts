@@ -2,7 +2,14 @@
  * @fileoverview React hook for a project's file-system tree (server sync).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createNode, deleteNode, fetchNodes, moveNode, renameNode } from '@/services/node.service';
+import {
+  createNode,
+  deleteNode,
+  duplicateNode,
+  fetchNodes,
+  moveNode,
+  renameNode,
+} from '@/services/node.service';
 
 const nodeKeys = {
   all: ['nodes'] as const,
@@ -34,6 +41,7 @@ export function useNodes(projectId: string | undefined) {
     onSuccess: invalidate,
   });
   const deleteMutation = useMutation({ mutationFn: deleteNode, onSuccess: invalidate });
+  const duplicateMutation = useMutation({ mutationFn: duplicateNode, onSuccess: invalidate });
 
   return {
     nodes: nodesQuery.data ?? [],
@@ -45,5 +53,6 @@ export function useNodes(projectId: string | undefined) {
     renameNode: renameMutation.mutateAsync,
     moveNode: moveMutation.mutateAsync,
     deleteNode: deleteMutation.mutateAsync,
+    duplicateNode: duplicateMutation.mutateAsync,
   };
 }

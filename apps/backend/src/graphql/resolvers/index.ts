@@ -357,6 +357,11 @@ export function buildResolvers() {
         return ctx.nodeService.delete(parseInput(idSchema, args.id, 'id'));
       },
 
+      duplicateNode: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.nodeService.duplicate(parseInput(idSchema, args.id, 'id'));
+      },
+
       setNodeData: async (
         _root: unknown,
         args: { id: string; data: Record<string, unknown> },

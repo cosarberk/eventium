@@ -5,6 +5,7 @@ import { urqlClient } from '@/api/client';
 import {
   CREATE_NODE,
   DELETE_NODE,
+  DUPLICATE_NODE,
   GET_NODES,
   MOVE_NODE,
   RENAME_NODE,
@@ -54,6 +55,13 @@ export async function deleteNode(id: string): Promise<{ id: string }> {
   const result = await urqlClient.mutation(DELETE_NODE, { id }).toPromise();
   if (result.error) throw new Error(result.error.message);
   return result.data.deleteNode as { id: string };
+}
+
+/** Duplicate a file node. */
+export async function duplicateNode(id: string): Promise<ProjectNode> {
+  const result = await urqlClient.mutation(DUPLICATE_NODE, { id }).toPromise();
+  if (result.error) throw new Error(result.error.message);
+  return result.data.duplicateNode as ProjectNode;
 }
 
 /** Replace a non-page file node's content JSON. */

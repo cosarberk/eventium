@@ -370,6 +370,9 @@ export const typeDefs = `
     """Delete a node, its descendants, and any pages they own."""
     deleteNode(id: ID!): Node
 
+    """Duplicate a file node (a page copies its blocks; others copy their data)."""
+    duplicateNode(id: ID!): Node
+
     """Replace a non-page file node's content JSON."""
     setNodeData(id: ID!, data: JSON!): Node!
 

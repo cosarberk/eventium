@@ -94,6 +94,62 @@ export class NodeService {
     return this.prisma.node.update({ where: { id }, data: { parentId, order } });
   }
 
+  /**
+   * Duplicate a node next to itself. A `page` node's Dashboard (with all its
+   * blocks) is copied; other kinds copy their `data`. Folders are not supported.
+   */
+  async duplicate(id: string) {
+    const node = await this.prisma.node.findUnique({ where: { id } });
+    if (!node || node.kind === 'folder') return node;
+
+    const order = await this.prisma.node.count({
+      where: { projectId: node.projectId, parentId: node.parentId },
+    });
+    const copyName = `${node.name} (kopya)`;
+
+    let refId: string | null = null;
+    if (node.kind === 'page' && node.refId) {
+      const src = await this.prisma.dashboard.findUnique({
+        where: { id: node.refId },
+        include: { blocks: true },
+      });
+      if (src) {
+        const page = await this.prisma.dashboard.create({
+          data: {
+            name: copyName,
+            projectId: node.projectId,
+            pageOrder: order,
+            layout: src.layout as Prisma.InputJsonValue,
+            blocks: {
+              create: src.blocks.map((b) => ({
+                componentType: b.componentType,
+                title: b.title,
+                slots: b.slots as Prisma.InputJsonValue,
+                options: b.options as Prisma.InputJsonValue,
+                position: b.position as Prisma.InputJsonValue,
+                size: b.size as Prisma.InputJsonValue,
+                sortOrder: b.sortOrder,
+              })),
+            },
+          },
+        });
+        refId = page.id;
+      }
+    }
+
+    return this.prisma.node.create({
+      data: {
+        projectId: node.projectId,
+        parentId: node.parentId,
+        kind: node.kind,
+        name: copyName,
+        order,
+        refId,
+        data: node.kind === 'page' ? {} : (node.data as Prisma.InputJsonValue),
+      },
+    });
+  }
+
   /** Replace a node's content JSON (for non-page files). */
   setData(id: string, data: Record<string, unknown>) {
     return this.prisma.node.update({

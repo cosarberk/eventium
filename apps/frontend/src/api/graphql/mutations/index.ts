@@ -151,6 +151,13 @@ export const DELETE_NODE = gql`
   }
 `;
 
+/** Duplicates a file node (page copies blocks; others copy data). */
+export const DUPLICATE_NODE = gql`
+  mutation DuplicateNode($id: ID!) {
+    duplicateNode(id: $id) { ${NODE_FIELDS} }
+  }
+`;
+
 /** Replaces a non-page file node's content JSON. */
 export const SET_NODE_DATA = gql`
   mutation SetNodeData($id: ID!, $data: JSON!) {

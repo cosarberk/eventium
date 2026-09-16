@@ -49,9 +49,8 @@ export function ExplorerPanel() {
   const addPage = useDashboardStore((s) => s.addPage);
   const removePageFromProject = useDashboardStore((s) => s.removePageFromProject);
   const activePageId = useDashboardStore((s) => s.activeDashboard?.id);
-  const { nodes, isLoading, createNode, renameNode, deleteNode, moveNode } = useNodes(
-    activeProject?.id,
-  );
+  const { nodes, isLoading, createNode, renameNode, deleteNode, moveNode, duplicateNode } =
+    useNodes(activeProject?.id);
 
   /** Delete a node; if it's a page, also drop it from the open project. */
   const handleDelete = async (id: string) => {
@@ -222,6 +221,7 @@ export function ExplorerPanel() {
           onOpen={(n) => openNode(n)}
           onRename={(id) => setRenamingId(id)}
           onDelete={(id) => handleDelete(id)}
+          onDuplicate={(id) => void duplicateNode(id)}
         />
       )}
     </div>
@@ -239,6 +239,7 @@ function ContextMenu({
   onOpen,
   onRename,
   onDelete,
+  onDuplicate,
 }: {
   x: number;
   y: number;
@@ -249,6 +250,7 @@ function ContextMenu({
   onOpen: (n: ProjectNode) => void;
   onRename: (id: string) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
 }) {
   const isFolder = node?.kind === 'folder';
   const parentForNew = node ? (isFolder ? node.id : (node.parentId ?? null)) : null;
@@ -257,6 +259,7 @@ function ContextMenu({
   items.push({ label: 'Yeni dosya…', run: () => onNewFile(parentForNew) });
   items.push({ label: 'Yeni klasör…', run: () => onNewFolder(parentForNew) });
   if (node) {
+    if (!isFolder) items.push({ label: 'Çoğalt', run: () => onDuplicate(node.id) });
     items.push({ label: 'Yeniden adlandır', run: () => onRename(node.id) });
     items.push({
       label: 'Sil',
