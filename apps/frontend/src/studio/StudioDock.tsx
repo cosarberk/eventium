@@ -40,6 +40,11 @@ import { ProblemsPanel } from './ProblemsPanel';
 const BlueprintCanvas = lazy(() =>
   import('@/components/blueprint/BlueprintGraph').then((m) => ({ default: m.BlueprintCanvas })),
 );
+const StandaloneBlueprint = lazy(() =>
+  import('@/components/blueprint/StandaloneBlueprint').then((m) => ({
+    default: m.StandaloneBlueprint,
+  })),
+);
 
 const LAYOUT_KEY = 'eventium-dock-layout-v7';
 
@@ -461,6 +466,21 @@ function FilePanel(props: IDockviewPanelProps<{ nodeId: string; kind: string }>)
   return <FileDocument nodeId={props.params.nodeId} kind={props.params.kind} />;
 }
 
+/** A standalone `.eb` blueprint document (its own saved logic graph). */
+function EbFilePanel(props: IDockviewPanelProps<{ nodeId: string }>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">
+          Blueprint yükleniyor…
+        </div>
+      }
+    >
+      <StandaloneBlueprint nodeId={props.params.nodeId} />
+    </Suspense>
+  );
+}
+
 /** Open (or focus) a project file in its own document. */
 function openFileDoc(api: DockviewApi, node: { id: string; kind: string; name: string }) {
   const id = `file:${node.id}`;
@@ -471,13 +491,14 @@ function openFileDoc(api: DockviewApi, node: { id: string; kind: string; name: s
   }
   const type = getFileType(node.kind);
   const title = type ? `${node.name}.${type.extension}` : node.name;
-  // Blueprint files open the graph; everything else opens the file editor.
-  const component = node.kind === 'blueprint' ? 'blueprint' : 'file';
+  // A .eb file opens its own standalone logic graph; everything else opens the
+  // generic file editor.
+  const component = node.kind === 'blueprint' ? 'ebfile' : 'file';
   api.addPanel({
     id,
     component,
     title,
-    params: node.kind === 'blueprint' ? { blockId: node.id } : { nodeId: node.id, kind: node.kind },
+    params: { nodeId: node.id, kind: node.kind },
     position: { referencePanel: 'designer', direction: 'within' },
   });
 }
@@ -534,6 +555,7 @@ const COMPONENTS = {
   code: CodePanel,
   blueprint: BlueprintPanel,
   file: FilePanel,
+  ebfile: EbFilePanel,
   source: PageSourcePanel,
   explorer: ExplorerPanel,
   toolbox: ToolboxPanel,
