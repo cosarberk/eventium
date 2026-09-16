@@ -11,6 +11,7 @@
 import { toast } from 'sonner';
 import { useNodes } from '@/hooks/useNodes';
 import { useSeedPageVariables } from '@/hooks/usePageVariables';
+import { useProjectVariables } from '@/hooks/useProjectVariables';
 import { fetchProjects } from '@/services/project.service';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { StartScreen } from './StartScreen';
@@ -26,6 +27,8 @@ export function StudioWorkspace() {
 
   /** Seed the open page's persisted runtime variables. */
   useSeedPageVariables(activeDashboard?.id, activeDashboard?.layout);
+  /** Merge the project's `.ev` variables into the runtime store. */
+  useProjectVariables(activeProject?.id);
 
   // Start screen only when no project is open at all.
   if (!projectOpen || !activeProject) {
