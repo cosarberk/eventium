@@ -108,6 +108,14 @@ export function DataSourcesPanel() {
                             icon="•"
                             label={field.label}
                             hint={String(field.type)}
+                            draggable
+                            dragData={{
+                              sourceType: inst.sourceType,
+                              instanceId: inst.instanceId,
+                              entity: entity.key,
+                              field: field.key,
+                              label: field.label,
+                            }}
                             onClick={() =>
                               bindField(
                                 inst.sourceType,
@@ -143,6 +151,8 @@ function Row({
   label,
   hint,
   onClick,
+  draggable,
+  dragData,
 }: {
   depth: number;
   open?: boolean;
@@ -151,14 +161,25 @@ function Row({
   label: string;
   hint?: string;
   onClick: () => void;
+  draggable?: boolean;
+  dragData?: Record<string, string>;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      draggable={draggable}
+      onDragStart={
+        draggable && dragData
+          ? (e) => {
+              e.dataTransfer.setData('application/eventium-field', JSON.stringify(dragData));
+              e.dataTransfer.effectAllowed = 'copy';
+            }
+          : undefined
+      }
       style={{ paddingLeft: 6 + depth * 14 }}
-      className="flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
-      title={depth === 2 ? 'Seçili bileşene bağla' : undefined}
+      className={`flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      title={depth === 2 ? 'Bileşene sürükle ya da tıkla (seçili bileşene bağla)' : undefined}
     >
       <span className="w-3 shrink-0 text-center text-[9px] text-[var(--color-text-tertiary)]">
         {caret ? (open ? '▾' : '▸') : ''}

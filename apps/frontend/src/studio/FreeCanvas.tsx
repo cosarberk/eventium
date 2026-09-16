@@ -13,6 +13,8 @@
  * Geometry lives in `options.frame` so the grid model (and live/broadcast) is
  * untouched; this renderer owns the `free` layout mode.
  */
+
+import { formatFieldRef } from '@eventium/shared';
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -21,7 +23,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { toast } from 'sonner';
 import { BlockContent } from '@/components/design/BlockRenderer';
+import { getComponent } from '@/components/design/registry';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 import { useCanvasPrefsStore } from './canvas-prefs.store';
@@ -125,7 +129,9 @@ export function FreeCanvas({
 }: FreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
+  const updateBlockSlots = useDashboardStore((s) => s.updateBlockSlots);
   const addClones = useDashboardStore((s) => s.addClones);
+  const [dropBlockId, setDropBlockId] = useState<string | null>(null);
   const clipboard = useRef<DashboardBlock[]>([]);
   const tool = useToolStore((s) => s.tool);
   const setTool = useToolStore((s) => s.setTool);
@@ -326,6 +332,29 @@ export function FreeCanvas({
     setTx(px - ((px - tx) * ns) / scale);
     setTy(py - ((py - ty) * ns) / scale);
     setScale(ns);
+  };
+
+  /** Bind a dragged data field to a block's first slot (drop-to-bind). */
+  const bindFieldToBlock = (
+    block: DashboardBlock,
+    d: { sourceType: string; instanceId: string; entity: string; field: string; label: string },
+  ) => {
+    const slotKey = getComponent(block.componentType)?.descriptor?.slots[0]?.key;
+    if (!slotKey) {
+      toast.error('Bu bileşenin bağlanabilir bir slotu yok.');
+      return;
+    }
+    const existing = block.slots[slotKey]?.values ?? [];
+    const value = {
+      id: `v-${Date.now()}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      binding: {
+        ref: formatFieldRef({ sourceType: d.sourceType, entity: d.entity, field: d.field }),
+        instanceId: d.instanceId,
+      },
+      label: d.label,
+    };
+    updateBlockSlots(block.id, { ...block.slots, [slotKey]: { values: [...existing, value] } });
+    toast.success(`${d.label} → ${block.title || block.componentType}`);
   };
 
   const startMove = (e: ReactPointerEvent, b: DashboardBlock) => {
@@ -710,10 +739,41 @@ export function FreeCanvas({
               key={b.id}
               onPointerDown={(e) => startMove(e, b)}
               onDoubleClick={() => onOpenEditor?.(b.id)}
+              onDragOver={
+                editing
+                  ? (e) => {
+                      if (e.dataTransfer.types.includes('application/eventium-field')) {
+                        e.preventDefault();
+                        setDropBlockId(b.id);
+                      }
+                    }
+                  : undefined
+              }
+              onDragLeave={
+                editing ? () => setDropBlockId((id) => (id === b.id ? null : id)) : undefined
+              }
+              onDrop={
+                editing
+                  ? (e) => {
+                      setDropBlockId(null);
+                      const raw = e.dataTransfer.getData('application/eventium-field');
+                      if (!raw) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        bindFieldToBlock(b, JSON.parse(raw));
+                      } catch {
+                        /* ignore malformed drag payload */
+                      }
+                    }
+                  : undefined
+              }
               className={`group absolute overflow-hidden rounded-lg bg-[var(--color-bg-elevated)] shadow-sm transition-shadow ${
-                isSel
-                  ? 'outline outline-2 outline-brand-500'
-                  : 'outline outline-1 outline-transparent hover:outline-brand-500/40'
+                dropBlockId === b.id
+                  ? 'outline outline-2 outline-accent-500'
+                  : isSel
+                    ? 'outline outline-2 outline-brand-500'
+                    : 'outline outline-1 outline-transparent hover:outline-brand-500/40'
               } ${editing ? 'cursor-grab active:cursor-grabbing' : ''}`}
               style={{ left: f.x, top: f.y, width: f.w, height: f.h }}
             >
