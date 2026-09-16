@@ -8,6 +8,7 @@
  */
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useProjectTheme } from '@/hooks/useProjectTheme';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 
@@ -19,9 +20,11 @@ const WIDTHS: Record<Device, number | null> = { full: null, tablet: 834, phone: 
 export function RunOverlay() {
   const [open, setOpen] = useState(false);
   const [device, setDevice] = useState<Device>('full');
+  const projectId = useDashboardStore((s) => s.activeProject?.id);
   const projectName = useDashboardStore((s) => s.activeProject?.name);
   const pageName = useDashboardStore((s) => s.activeDashboard?.name);
   const projectOpen = useDashboardStore((s) => s.projectOpen);
+  const themeCss = useProjectTheme(projectId);
 
   useEffect(() => {
     const onRun = () => setOpen(true);
@@ -117,10 +120,15 @@ export function RunOverlay() {
             </div>
           </div>
 
-          {/* Rendered page (read-only, live) */}
+          {/* Rendered page (read-only, live) — the active theme, if any, is
+              injected scoped to this preview. */}
+          {themeCss && (
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: project theme CSS variables, scoped
+            <style dangerouslySetInnerHTML={{ __html: `.eventium-themed{${themeCss}}` }} />
+          )}
           <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
             <div
-              className="h-full w-full overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] shadow-xl"
+              className="eventium-themed h-full w-full overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] shadow-xl"
               style={width ? { maxWidth: width } : undefined}
             >
               <CanvasSurface editing={false} />

@@ -28,7 +28,12 @@ function seedFor(kind: string): string {
     case 'script':
       return '// Eventium script\nexport function run(ctx) {\n  // ...\n}\n';
     case 'theme':
-      return ':root {\n  --accent: #6366f1;\n}\n';
+      return (
+        '/* Tema — CSS değişkenleri. Çalıştır önizlemesinde sayfaya uygulanır. */\n' +
+        '--color-brand-500: #6366f1;\n' +
+        '--color-bg-primary: #0a0e17;\n' +
+        '--color-accent-500: #06b6d4;\n'
+      );
     case 'variables':
       return '{\n  "example": "value"\n}\n';
     case 'datasource':
