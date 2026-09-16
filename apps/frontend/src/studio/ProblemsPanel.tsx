@@ -1,63 +1,21 @@
 /**
  * @fileoverview Problems tool window.
  * Validates the active page's controls — required slots left unbound, malformed
- * binding refs — and lets the user jump to the offending control.
+ * binding refs — and lets the user jump to the offending control. The problem
+ * count lives on the dock tab (a coloured badge), so this panel carries no
+ * redundant title header.
  */
-import { parseFieldRef } from '@eventium/shared';
-import { getComponent } from '@/components/design/registry';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { PanelEmpty } from './PanelEmpty';
-
-interface Problem {
-  blockId: string;
-  level: 'error' | 'warn';
-  message: string;
-}
+import { usePageProblems } from './usePageProblems';
 
 /** The problems panel. */
 export function ProblemsPanel() {
-  const activeDashboard = useDashboardStore((s) => s.activeDashboard);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
-  const blocks = activeDashboard?.blocks ?? [];
-
-  const problems: Problem[] = [];
-  for (const block of blocks) {
-    const label = block.title || block.componentType;
-    const descriptor = getComponent(block.componentType)?.descriptor;
-    if (!descriptor) {
-      problems.push({
-        blockId: block.id,
-        level: 'error',
-        message: `${label}: bilinmeyen bileşen tipi`,
-      });
-      continue;
-    }
-    for (const slot of descriptor.slots) {
-      const values = block.slots[slot.key]?.values ?? [];
-      if (slot.required && values.length === 0) {
-        problems.push({
-          blockId: block.id,
-          level: 'warn',
-          message: `${label}: "${slot.label}" zorunlu ama bağlı değer yok`,
-        });
-      }
-      for (const v of values) {
-        if (v.binding && !parseFieldRef(v.binding.ref)) {
-          problems.push({
-            blockId: block.id,
-            level: 'error',
-            message: `${label}: geçersiz binding "${v.binding.ref}"`,
-          });
-        }
-      }
-    }
-  }
+  const { problems } = usePageProblems();
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-bg-primary)]">
-      <div className="border-b border-[var(--color-border-primary)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-        Sorunlar · {problems.length}
-      </div>
+    <div className="flex h-full flex-col bg-[var(--color-bg-secondary)]">
       <div className="min-h-0 flex-1 overflow-auto p-1.5 text-xs">
         {problems.length === 0 ? (
           <PanelEmpty icon="✓" text="Sorun yok. Zorunlu slotlar ve binding'ler geçerli." />

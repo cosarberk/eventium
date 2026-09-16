@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getComponent } from '@/components/design/registry';
-import type { BlockSlot, Dashboard, DashboardBlock, ID } from '@/types';
+import type { BlockSlot, Dashboard, DashboardBlock, ID, Project } from '@/types';
 
 /** A single grid item (position + size) as reported by react-grid-layout. */
 export interface GridItem {
@@ -32,12 +32,20 @@ function makeBlockId(): string {
 
 /** Shape of the dashboard store state and actions. */
 interface DashboardState {
-  /** Currently active page. */
+  /** The open project (null on the start screen). */
+  activeProject: Project | null;
+  /** Currently active page within the open project. */
   activeDashboard: Dashboard | null;
   /** All available pages. */
   dashboards: Dashboard[];
   /** Whether the builder is in edit mode. */
   isEditMode: boolean;
+  /**
+   * Whether a project is open in the editor. When false the workspace shows the
+   * start screen (project browser). Not persisted: the app always opens to the
+   * start screen, like a desktop IDE.
+   */
+  projectOpen: boolean;
   /** Currently selected block id (drives the Inspector dock). */
   selectedBlockId: ID | null;
   /** Undo/redo history of block snapshots (structural edits). */
@@ -54,6 +62,14 @@ interface DashboardState {
   setDashboards: (dashboards: Dashboard[]) => void;
   /** Sets the active page. */
   setActiveDashboard: (dashboard: Dashboard) => void;
+  /** Opens a project into the editor, focusing its first page. */
+  openProject: (project: Project) => void;
+  /** Switches the active page within the open project. */
+  openPage: (page: Dashboard) => void;
+  /** Appends a freshly created page to the open project and focuses it. */
+  addPage: (page: Dashboard) => void;
+  /** Closes the open project and returns to the start screen. */
+  closeProject: () => void;
   /**
    * Adds a new block of the given component type. Without `at` it lands on a
    * fresh row below everything; with `at` it lands at that grid cell (used when
@@ -81,6 +97,12 @@ interface DashboardState {
   reorderBlock: (id: ID, dir: -1 | 1) => void;
   /** Sets a block's free-canvas frame (absolute px geometry) in its options. */
   updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
+  /** Persist the blueprint component-graph edges into the active page's layout. */
+  setBlueprintEdges: (edges: { id: string; source: string; target: string }[]) => void;
+  /** Replace the whole block array (from the Page Source editor). */
+  replaceBlocks: (blocks: DashboardBlock[]) => void;
+  /** Merge fields into the active page's layout blob (design settings, links). */
+  patchLayout: (patch: Record<string, unknown>) => void;
   /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
   addBlockWithFrame: (componentType: string, at: { x: number; y: number }) => void;
   /**
@@ -99,9 +121,11 @@ interface DashboardState {
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set, get) => ({
+      activeProject: null,
       activeDashboard: null,
       dashboards: [],
       isEditMode: false,
+      projectOpen: false,
       selectedBlockId: null,
       past: [],
       future: [],
@@ -144,6 +168,37 @@ export const useDashboardStore = create<DashboardState>()(
 
       setActiveDashboard: (dashboard) => {
         set({ activeDashboard: dashboard, selectedBlockId: null, past: [], future: [] });
+      },
+
+      openProject: (project) => {
+        set({
+          activeProject: project,
+          activeDashboard: project.pages[0] ?? null,
+          projectOpen: true,
+          isEditMode: true,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+        });
+      },
+
+      openPage: (page) => {
+        set({ activeDashboard: page, selectedBlockId: null, past: [], future: [] });
+      },
+
+      addPage: (page) => {
+        const project = get().activeProject;
+        set({
+          activeProject: project ? { ...project, pages: [...project.pages, page] } : project,
+          activeDashboard: page,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+        });
+      },
+
+      closeProject: () => {
+        set({ projectOpen: false, activeProject: null, selectedBlockId: null });
       },
 
       addBlock: (componentType, at) => {
@@ -370,6 +425,35 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+        });
+      },
+
+      setBlueprintEdges: (edges) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: {
+            ...dashboard,
+            layout: { ...dashboard.layout, blueprintEdges: edges },
+          },
+        });
+      },
+
+      replaceBlocks: (blocks) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+        });
+      },
+
+      patchLayout: (patch) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: { ...dashboard, layout: { ...dashboard.layout, ...patch } },
         });
       },
 

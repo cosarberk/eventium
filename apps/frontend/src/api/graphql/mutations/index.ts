@@ -56,6 +56,108 @@ export const DELETE_DASHBOARD = gql`
   }
 `;
 
+/** Reusable page selection set for project mutations. */
+const PAGE_FIELDS = `
+  id
+  name
+  description
+  layout
+  isDefault
+  projectId
+  pageOrder
+  blocks { ${BLOCK_FIELDS} }
+  createdAt
+  updatedAt
+`;
+
+/** Reusable project selection set. */
+const PROJECT_FIELDS = `
+  id
+  name
+  type
+  description
+  createdAt
+  updatedAt
+  pages { ${PAGE_FIELDS} }
+`;
+
+/** Creates a project (with one empty starter page). */
+export const CREATE_PROJECT = gql`
+  mutation CreateProject($input: CreateProjectInput!) {
+    createProject(input: $input) { ${PROJECT_FIELDS} }
+  }
+`;
+
+/** Updates a project's name/type/description. */
+export const UPDATE_PROJECT = gql`
+  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {
+    updateProject(id: $id, input: $input) { ${PROJECT_FIELDS} }
+  }
+`;
+
+/** Deletes a project and all of its pages. */
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($id: ID!) {
+    deleteProject(id: $id) { id }
+  }
+`;
+
+/** Adds a new empty page to a project. */
+export const CREATE_PAGE = gql`
+  mutation CreatePage($projectId: ID!, $name: String!) {
+    createPage(projectId: $projectId, name: $name) { ${PAGE_FIELDS} }
+  }
+`;
+
+/** Reusable node selection set. */
+const NODE_FIELDS = `
+  id
+  projectId
+  parentId
+  kind
+  name
+  order
+  refId
+  data
+  createdAt
+  updatedAt
+`;
+
+/** Creates a folder or typed file in a project's tree. */
+export const CREATE_NODE = gql`
+  mutation CreateNode($input: CreateNodeInput!) {
+    createNode(input: $input) { ${NODE_FIELDS} }
+  }
+`;
+
+/** Renames a tree node. */
+export const RENAME_NODE = gql`
+  mutation RenameNode($id: ID!, $name: String!) {
+    renameNode(id: $id, name: $name) { ${NODE_FIELDS} }
+  }
+`;
+
+/** Moves a node under a new parent. */
+export const MOVE_NODE = gql`
+  mutation MoveNode($id: ID!, $parentId: ID, $order: Int!) {
+    moveNode(id: $id, parentId: $parentId, order: $order) { ${NODE_FIELDS} }
+  }
+`;
+
+/** Deletes a node and its descendants. */
+export const DELETE_NODE = gql`
+  mutation DeleteNode($id: ID!) {
+    deleteNode(id: $id) { id }
+  }
+`;
+
+/** Replaces a non-page file node's content JSON. */
+export const SET_NODE_DATA = gql`
+  mutation SetNodeData($id: ID!, $data: JSON!) {
+    setNodeData(id: $id, data: $data) { ${NODE_FIELDS} }
+  }
+`;
+
 /** Installs a new plugin instance */
 export const INSTALL_PLUGIN = gql`
   mutation InstallPlugin($input: InstallPluginInput!) {

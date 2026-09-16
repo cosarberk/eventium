@@ -16,6 +16,8 @@ interface CanvasStatusState {
   selected: number;
   /** Active layout mode label, if any. */
   layoutMode: string | null;
+  /** Active tool label (Seç / El / Metin …), if any. */
+  tool: string | null;
   /** Merge a partial status update. */
   set: (patch: Partial<Omit<CanvasStatusState, 'set'>>) => void;
 }
@@ -26,5 +28,6 @@ export const useCanvasStatusStore = create<CanvasStatusState>((set) => ({
   zoom: 1,
   selected: 0,
   layoutMode: null,
+  tool: null,
   set: (patch) => set(patch),
 }));

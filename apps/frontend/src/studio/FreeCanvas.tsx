@@ -24,6 +24,7 @@ import {
 import { BlockContent } from '@/components/design/BlockRenderer';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
+import { useCanvasPrefsStore } from './canvas-prefs.store';
 import { useCanvasStatusStore } from './canvas-status.store';
 import { TOOLS, useToolStore } from './tool.store';
 
@@ -128,12 +129,15 @@ export function FreeCanvas({
   const clipboard = useRef<DashboardBlock[]>([]);
   const tool = useToolStore((s) => s.tool);
   const setTool = useToolStore((s) => s.setTool);
+  const gridVisible = useCanvasPrefsStore((s) => s.gridVisible);
+  const toggleGrid = useCanvasPrefsStore((s) => s.toggleGrid);
   const toolRef = useRef(tool);
   toolRef.current = tool;
 
-  const [scale, setScale] = useState(1);
-  const [tx, setTx] = useState(0);
-  const [ty, setTy] = useState(0);
+  // Start a little zoomed-out and inset, so the canvas doesn't feel cramped.
+  const [scale, setScale] = useState(0.8);
+  const [tx, setTx] = useState(56);
+  const [ty, setTy] = useState(40);
   const [live, setLive] = useState<Record<string, Frame>>({});
   const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -163,8 +167,14 @@ export function FreeCanvas({
   // Publish live viewport context to the status bar.
   const setStatus = useCanvasStatusStore((s) => s.set);
   useEffect(() => {
-    setStatus({ active: editing, zoom: scale, selected: sel.size, layoutMode: 'free' });
-  }, [editing, scale, sel, setStatus]);
+    setStatus({
+      active: editing,
+      zoom: scale,
+      selected: sel.size,
+      layoutMode: 'free',
+      tool: TOOLS.find((t) => t.id === tool)?.label ?? null,
+    });
+  }, [editing, scale, sel, tool, setStatus]);
   useEffect(() => () => setStatus({ active: false }), [setStatus]);
 
   const frameFor = useCallback((b: DashboardBlock): Frame => live[b.id] ?? frameOf(b), [live]);
@@ -386,6 +396,14 @@ export function FreeCanvas({
       zoomAt(e.clientX, e.clientY, e.altKey ? 1 / 1.2 : 1.2);
       return;
     }
+    // Place tools (Metin / Şekil) → drop the component at the click, then Select.
+    const active = TOOLS.find((td) => td.id === toolRef.current);
+    if (active?.place && onAddAt) {
+      const q = toSurface(e.clientX, e.clientY);
+      onAddAt(active.place, round(q.x), round(q.y));
+      setTool('select');
+      return;
+    }
     // Alt-drag pans even with the Select tool.
     if (e.altKey) {
       beginPan(e.clientX, e.clientY);
@@ -551,7 +569,7 @@ export function FreeCanvas({
     <div
       ref={containerRef}
       className="relative h-full min-h-[400px] w-full overflow-hidden bg-[var(--color-bg-secondary)]"
-      style={{ cursor: tool === 'hand' ? 'grab' : tool === 'zoom' ? 'zoom-in' : 'default' }}
+      style={{ cursor: TOOLS.find((t) => t.id === tool)?.cursor ?? 'default' }}
       onWheel={onWheel}
       onPointerDown={onBackgroundPointerDown}
       onDragOver={(e) => {
@@ -595,6 +613,28 @@ export function FreeCanvas({
               </svg>
             </button>
           ))}
+
+          {/* Divider → view tools */}
+          <div className="mx-auto my-0.5 h-px w-5 bg-[var(--color-border-primary)]" />
+          <button
+            type="button"
+            onClick={toggleGrid}
+            title="Kare ızgara (aç/kapa)"
+            aria-label="Kare ızgara"
+            className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              gridVisible
+                ? 'bg-brand-500 text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M2 2h12v12H2zM6 2v12M10 2v12M2 6h12M2 10h12"
+                stroke="currentColor"
+                strokeWidth="1.1"
+              />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -608,11 +648,7 @@ export function FreeCanvas({
             {TOOLS.find((t) => t.id === tool)?.label}
           </span>
           <span className="text-[var(--color-text-tertiary)]">
-            {tool === 'select'
-              ? 'Sürükle=taşı · boş=seç · Shift=çoklu'
-              : tool === 'hand'
-                ? 'Sürükle=kaydır'
-                : 'Tıkla=yakınlaş · Alt=uzaklaş'}
+            {TOOLS.find((t) => t.id === tool)?.hint}
           </span>
         </div>
       )}
@@ -622,7 +658,7 @@ export function FreeCanvas({
         className="absolute left-0 top-0 origin-top-left"
         style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
       >
-        {/* Dot grid backdrop */}
+        {/* Grid backdrop — subtle dots, or a squared graph-paper grid when toggled */}
         <div
           className="pointer-events-none absolute -z-10"
           style={{
@@ -630,9 +666,11 @@ export function FreeCanvas({
             top: -2000,
             width: 8000,
             height: 8000,
-            backgroundImage: 'radial-gradient(var(--color-border-primary) 1px, transparent 1px)',
+            backgroundImage: gridVisible
+              ? 'linear-gradient(var(--color-border-primary) 1px, transparent 1px), linear-gradient(90deg, var(--color-border-primary) 1px, transparent 1px)'
+              : 'radial-gradient(var(--color-border-primary) 1px, transparent 1px)',
             backgroundSize: `${GRID * 3}px ${GRID * 3}px`,
-            opacity: 0.5,
+            opacity: gridVisible ? 0.55 : 0.5,
           }}
         />
 

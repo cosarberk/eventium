@@ -10,8 +10,6 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { BroadcastLinksPage } from '@/pages/BroadcastLinksPage';
 import { BroadcastPage } from '@/pages/BroadcastPage';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { HomePage } from '@/pages/HomePage';
 import { LivePage } from '@/pages/LivePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PluginsPage } from '@/pages/PluginsPage';
@@ -19,6 +17,7 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { Launcher } from '@/studio/Launcher';
+import { StudioWorkspace } from '@/studio/StudioWorkspace';
 
 /** Root route — renders child routes via Outlet */
 const rootRoute = createRootRoute({
@@ -40,18 +39,18 @@ const authenticatedLayout = createRoute({
   ),
 });
 
-/** Home / overview landing (/) */
+/** Studio workspace landing (/) — start screen or the open project's editor. */
 const homeRoute = createRoute({
   getParentRoute: () => authenticatedLayout,
   path: '/',
-  component: HomePage,
+  component: StudioWorkspace,
 });
 
-/** Boards — dashboards manager (/boards) */
+/** Boards — same studio workspace, kept for existing links (/boards). */
 const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedLayout,
   path: '/boards',
-  component: DashboardPage,
+  component: StudioWorkspace,
 });
 
 /** Project launcher — OnlyOffice-style "new project" start screen (/new) */

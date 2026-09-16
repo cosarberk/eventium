@@ -5,7 +5,7 @@
  */
 import { lazy, Suspense, useEffect, useState } from 'react';
 
-const BlueprintModal = lazy(() => import('./BlueprintModal'));
+const BlueprintModal = lazy(() => import('./BlueprintGraph'));
 
 /** Mounts always (cheap); loads the editor chunk on demand. */
 export function BlueprintOverlay() {

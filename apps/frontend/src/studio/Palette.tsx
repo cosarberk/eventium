@@ -63,7 +63,7 @@ export function Palette() {
   }, [projectType, search]);
 
   return (
-    <aside className="flex w-52 shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-[var(--color-bg-secondary)]">
       <div className="border-b border-[var(--color-border-primary)] p-2.5">
         <div className="mb-2 flex items-center gap-1.5">
           <span className="text-sm">{projectType?.icon ?? '🧱'}</span>

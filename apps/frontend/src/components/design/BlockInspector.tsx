@@ -131,7 +131,7 @@ export function BlockInspector({
   };
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-[var(--color-bg-secondary)]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-primary)] px-4 py-3 shrink-0">
         <div className="min-w-0">

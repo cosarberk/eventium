@@ -64,10 +64,6 @@ export function DataSourcesPanel() {
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-bg-secondary)]">
-      <div className="border-b border-[var(--color-border-primary)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-        Veri & Kaynaklar
-      </div>
-
       <div className="min-h-0 flex-1 overflow-auto p-1.5 text-xs">
         {isLoading && <p className="px-2 py-3 text-[var(--color-text-tertiary)]">Yükleniyor…</p>}
         {!isLoading && capabilities.length === 0 && (

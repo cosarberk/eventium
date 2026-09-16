@@ -136,7 +136,40 @@ export interface Dashboard {
   description: string;
   layout: Record<string, unknown>;
   isDefault: boolean;
+  /** Owning project id (present once migrated to the project model). */
+  projectId?: string | null;
+  /** Order of this page within its project. */
+  pageOrder?: number;
   blocks: DashboardBlock[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A node in a project's file-system tree — a folder or a typed file. */
+export interface ProjectNode {
+  id: ID;
+  projectId: string;
+  parentId?: string | null;
+  /** folder | page | blueprint | datasource | script | component | variables | theme | … */
+  kind: string;
+  name: string;
+  order: number;
+  /** For a `page` node: the Dashboard it opens. */
+  refId?: string | null;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A project — the top-level unit that owns pages, like a VS solution. */
+export interface Project {
+  id: ID;
+  name: string;
+  /** Project-type id (dashboard/site/app/report/blank). */
+  type: string;
+  description: string;
+  /** The project's pages, ordered by `pageOrder`. */
+  pages: Dashboard[];
   createdAt: string;
   updatedAt: string;
 }

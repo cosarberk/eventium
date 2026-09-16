@@ -7,25 +7,20 @@
  * focused for that type. Also lists recent projects to reopen.
  */
 
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useDashboard } from '@/hooks/useDashboard';
-import { createDashboard } from '@/services/dashboard.service';
+import { useProjects } from '@/hooks/useProjects';
 import { useDashboardStore } from '@/storage/dashboard.store';
-import { projectLayout } from './project';
 // Side-effect: registers all built-in project types into the registry.
 import { listProjectTypes, type ProjectTypeDescriptor } from './project-types';
 
 /** The launcher page. */
 export function Launcher() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const types = listProjectTypes();
-  const { dashboards } = useDashboard();
-  const setActiveDashboard = useDashboardStore((s) => s.setActiveDashboard);
-  const setEditMode = useDashboardStore((s) => s.setEditMode);
+  const { projects, createProject } = useProjects();
+  const openProject = useDashboardStore((s) => s.openProject);
   const [busy, setBusy] = useState<string | null>(null);
 
   const create = async (type: ProjectTypeDescriptor) => {
@@ -33,13 +28,9 @@ export function Launcher() {
     setBusy(type.id);
     try {
       const name = `${type.label} · ${new Date().toLocaleDateString('tr-TR')}`;
-      const created = await createDashboard(name, [], false, projectLayout(type.id));
-      // Refresh the list first so the editor's dashboard sync keeps the new
-      // project active instead of reconciling it away against a stale list.
-      await queryClient.refetchQueries({ queryKey: ['dashboards'] });
-      setActiveDashboard(created);
-      setEditMode(true);
-      navigate({ to: '/boards' });
+      const project = await createProject({ name, type: type.id });
+      openProject(project);
+      navigate({ to: '/' });
     } catch (err) {
       toast.error(`Proje oluşturulamadı: ${(err as Error).message}`);
     } finally {
@@ -87,19 +78,19 @@ export function Launcher() {
       )}
 
       {/* Recent projects */}
-      {dashboards.length > 0 && (
+      {projects.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
             Son projeler
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {dashboards.slice(0, 6).map((d) => (
+            {projects.slice(0, 6).map((d) => (
               <button
                 key={d.id}
                 type="button"
                 onClick={() => {
-                  setActiveDashboard(d);
-                  navigate({ to: '/boards' });
+                  openProject(d);
+                  navigate({ to: '/' });
                 }}
                 className="flex items-center gap-3 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] px-3 py-2.5 text-left transition-colors hover:border-brand-500/50 hover:bg-[var(--color-surface-hover)]"
               >
@@ -109,7 +100,7 @@ export function Launcher() {
                     {d.name}
                   </span>
                   <span className="block truncate text-[11px] text-[var(--color-text-tertiary)]">
-                    {d.blocks?.length ?? 0} bileşen
+                    {d.pages?.length ?? 0} sayfa
                   </span>
                 </span>
               </button>

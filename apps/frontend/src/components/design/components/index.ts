@@ -14,6 +14,7 @@ import { CustomReactRenderer } from './CustomReactRenderer';
 import { GaugeRenderer } from './GaugeRenderer';
 import { LineChartRenderer } from './LineChartRenderer';
 import { SeparatorRenderer } from './SeparatorRenderer';
+import { ShapeRenderer } from './ShapeRenderer';
 import { StatRenderer } from './StatRenderer';
 import { TableRenderer } from './TableRenderer';
 import { TextRenderer } from './TextRenderer';
@@ -32,6 +33,7 @@ export const BUILTIN_COMPONENTS = [
   CustomHtmlRenderer,
   CustomReactRenderer,
   SeparatorRenderer,
+  ShapeRenderer,
 ] as const;
 
 for (const renderer of BUILTIN_COMPONENTS) {
@@ -46,6 +48,7 @@ export {
   GaugeRenderer,
   LineChartRenderer,
   SeparatorRenderer,
+  ShapeRenderer,
   StatRenderer,
   TableRenderer,
   TextRenderer,

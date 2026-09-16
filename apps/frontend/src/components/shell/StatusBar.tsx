@@ -29,6 +29,11 @@ export function StatusBar() {
       <div className="flex items-center gap-3 shrink-0">
         {canvas.active && (
           <span className="hidden md:flex items-center gap-2 font-mono">
+            {canvas.tool && (
+              <span className="rounded bg-brand-500/15 px-1.5 py-0.5 text-brand-400">
+                {canvas.tool}
+              </span>
+            )}
             <span className="rounded bg-[var(--color-bg-tertiary)] px-1.5 py-0.5">
               {canvas.layoutMode === 'free' ? 'Serbest' : 'Izgara'}
             </span>
