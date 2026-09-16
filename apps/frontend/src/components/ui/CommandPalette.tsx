@@ -14,7 +14,7 @@ import { useDashboardStore } from '@/storage/dashboard.store';
 import { useCanvasPrefsStore } from '@/studio/canvas-prefs.store';
 import { fileLabel } from '@/studio/file-types';
 
-const emit = (name: string, detail?: string) =>
+const emit = (name: string, detail?: unknown) =>
   window.dispatchEvent(detail === undefined ? new Event(name) : new CustomEvent(name, { detail }));
 
 /** A runnable command. */
@@ -47,7 +47,6 @@ export function CommandPalette() {
   const toggleGrid = useCanvasPrefsStore((s) => s.toggleGrid);
   const projectOpen = useDashboardStore((s) => s.projectOpen);
   const activeProject = useDashboardStore((s) => s.activeProject);
-  const openPage = useDashboardStore((s) => s.openPage);
   const closeProject = useDashboardStore((s) => s.closeProject);
   const { nodes } = useNodes(activeProject?.id);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +113,7 @@ export function CommandPalette() {
           id: `page-${p.id}`,
           group: 'Aç',
           label: `📄 ${p.name}`,
-          run: () => openPage(p),
+          run: () => emit('eventium:open-page', { id: p.id, name: p.name }),
         });
       }
       for (const n of nodes) {
@@ -123,8 +122,7 @@ export function CommandPalette() {
           id: `file-${n.id}`,
           group: 'Aç',
           label: fileLabel(n.kind, n.name),
-          run: () =>
-            emit('eventium:open-file', JSON.stringify({ id: n.id, kind: n.kind, name: n.name })),
+          run: () => emit('eventium:open-file', { id: n.id, kind: n.kind, name: n.name }),
         });
       }
     }
@@ -252,7 +250,6 @@ export function CommandPalette() {
     toggleGrid,
     projectOpen,
     activeProject,
-    openPage,
     closeProject,
     nodes,
   ]);

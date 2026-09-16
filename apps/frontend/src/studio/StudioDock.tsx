@@ -46,7 +46,7 @@ const StandaloneBlueprint = lazy(() =>
   })),
 );
 
-const LAYOUT_KEY = 'eventium-dock-layout-v7';
+const LAYOUT_KEY = 'eventium-dock-layout-v8';
 
 /**
  * Builds the default tool-window layout (used on first load and on reset).
@@ -56,7 +56,13 @@ const LAYOUT_KEY = 'eventium-dock-layout-v7';
  * it, and an Inspector/Data column on the right.
  */
 function applyDefaultLayout(api: DockviewApi) {
-  api.addPanel({ id: 'designer', component: 'designer', title: 'Tasarımcı' });
+  const anchorPage = useDashboardStore.getState().activeDashboard;
+  api.addPanel({
+    id: 'designer',
+    component: 'designer',
+    title: anchorPage?.name ?? 'Tasarımcı',
+    params: { pageId: anchorPage?.id },
+  });
   api.addPanel({
     id: 'preview',
     component: 'preview',
@@ -125,7 +131,13 @@ function applyDefaultLayout(api: DockviewApi) {
 
 /** Veri perspektifi — kaynaklar öne çıkar. */
 function applyDataLayout(api: DockviewApi) {
-  api.addPanel({ id: 'designer', component: 'designer', title: 'Tasarımcı' });
+  const anchorPage = useDashboardStore.getState().activeDashboard;
+  api.addPanel({
+    id: 'designer',
+    component: 'designer',
+    title: anchorPage?.name ?? 'Tasarımcı',
+    params: { pageId: anchorPage?.id },
+  });
   api.addPanel({
     id: 'data',
     component: 'data',
@@ -168,7 +180,13 @@ function applyDataLayout(api: DockviewApi) {
 
 /** Mantık perspektifi — anahat + sorunlar/konsol öne çıkar. */
 function applyLogicLayout(api: DockviewApi) {
-  api.addPanel({ id: 'designer', component: 'designer', title: 'Tasarımcı' });
+  const anchorPage = useDashboardStore.getState().activeDashboard;
+  api.addPanel({
+    id: 'designer',
+    component: 'designer',
+    title: anchorPage?.name ?? 'Tasarımcı',
+    params: { pageId: anchorPage?.id },
+  });
   api.addPanel({
     id: 'outline',
     component: 'outline',
@@ -422,10 +440,35 @@ function PreviewDoc() {
   return <CanvasSurface editing={false} />;
 }
 
-/** Designer document — the canvas. */
-function DesignerPanel(props: IDockviewPanelProps) {
+/**
+ * Designer document — the canvas for one page.
+ *
+ * A designer tab is bound to a page (`pageId`). When the tab becomes active it
+ * makes its page the store's active page, so switching designer tabs switches
+ * the edited page (VS Code-style single active editor); the always-mounted but
+ * hidden tabs don't interfere because only the active one is visible.
+ */
+function DesignerPanel(props: IDockviewPanelProps<{ pageId?: string }>) {
+  const pageId = props.params.pageId;
+  const openPage = useDashboardStore((s) => s.openPage);
   const blocks = useDashboardStore((s) => s.activeDashboard?.blocks);
   const titleFor = (id: string) => blocks?.find((b) => b.id === id)?.title || 'Bileşen';
+
+  useEffect(() => {
+    if (!pageId) return;
+    const activate = () => {
+      const st = useDashboardStore.getState();
+      if (st.activeDashboard?.id === pageId) return;
+      const page = st.activeProject?.pages.find((p) => p.id === pageId);
+      if (page) openPage(page);
+    };
+    if (props.api.isActive) activate();
+    const disp = props.api.onDidActiveChange((e) => {
+      if (e.isActive) activate();
+    });
+    return () => disp.dispose();
+  }, [pageId, openPage, props.api]);
+
   return (
     <CanvasSurface
       editing
@@ -479,6 +522,31 @@ function EbFilePanel(props: IDockviewPanelProps<{ nodeId: string }>) {
       <StandaloneBlueprint nodeId={props.params.nodeId} />
     </Suspense>
   );
+}
+
+/**
+ * Open (or focus) a page's Designer document. The first page uses the stable
+ * `designer` anchor id (referenced by the default layout); further pages open
+ * their own `designer:<pageId>` tab in the same group.
+ */
+function openPageDoc(api: DockviewApi, page: { id: string; name: string }, anchorPageId?: string) {
+  if (anchorPageId && page.id === anchorPageId) {
+    api.getPanel('designer')?.api.setActive();
+    return;
+  }
+  const id = `designer:${page.id}`;
+  const existing = api.getPanel(id);
+  if (existing) {
+    existing.api.setActive();
+    return;
+  }
+  api.addPanel({
+    id,
+    component: 'designer',
+    title: page.name,
+    params: { pageId: page.id },
+    position: { referencePanel: 'designer', direction: 'within' },
+  });
 }
 
 /** Open (or focus) a project file in its own document. */
@@ -597,10 +665,11 @@ function ToolbarIcon({
 /** The docking workspace. */
 export function StudioDock() {
   const apiRef = useRef<DockviewApi | null>(null);
+  // The page id of the stable `designer` anchor document (the first opened page).
+  const anchorPageIdRef = useRef<string | undefined>(undefined);
   const blocks = useDashboardStore((s) => s.activeDashboard?.blocks);
   const activeDashboard = useDashboardStore((s) => s.activeDashboard);
   const activeProject = useDashboardStore((s) => s.activeProject);
-  const openPage = useDashboardStore((s) => s.openPage);
   const addPage = useDashboardStore((s) => s.addPage);
   const closeProject = useDashboardStore((s) => s.closeProject);
   const undo = useDashboardStore((s) => s.undo);
@@ -633,7 +702,12 @@ export function StudioDock() {
       const page = projects
         .find((p) => p.id === activeProject.id)
         ?.pages.find((p) => p.id === node.refId);
-      if (page) addPage(page);
+      if (page) {
+        addPage(page);
+        window.dispatchEvent(
+          new CustomEvent('eventium:open-page', { detail: { id: page.id, name: page.name } }),
+        );
+      }
       toast.success('Sayfa eklendi');
     } catch (e) {
       toast.error(`Sayfa eklenemedi: ${(e as Error).message}`);
@@ -672,6 +746,18 @@ export function StudioDock() {
 
     if (!restored) applyDefaultLayout(api);
 
+    // Layouts persist globally, so a restored `designer` anchor may still carry
+    // the previous project's page. Rebind it to the current active page and
+    // remember its id, so opening that page focuses the anchor instead of
+    // spawning a duplicate tab.
+    const active = useDashboardStore.getState().activeDashboard;
+    const anchor = api.getPanel('designer');
+    if (anchor && active) {
+      anchor.api.updateParameters({ pageId: active.id });
+      anchor.setTitle(active.name);
+    }
+    anchorPageIdRef.current = active?.id;
+
     try {
       const savedPerspective = localStorage.getItem('eventium-perspective');
       if (savedPerspective) setPerspective(savedPerspective);
@@ -701,6 +787,20 @@ export function StudioDock() {
     }
   }, [blocks]);
 
+  // Close extra Designer tabs (`designer:<pageId>`) whose page was deleted. The
+  // stable `designer` anchor is never closed so the layout keeps its spine.
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    const pageIds = new Set((activeProject?.pages ?? []).map((p) => p.id));
+    for (const panel of api.panels) {
+      const [kind, pid] = panel.id.split(':');
+      if (kind === 'designer' && pid && !pageIds.has(pid)) {
+        panel.api.close();
+      }
+    }
+  }, [activeProject?.pages]);
+
   const resetLayout = () => {
     const api = apiRef.current;
     if (!api) return;
@@ -726,6 +826,10 @@ export function StudioDock() {
       const node = (e as CustomEvent<{ id: string; kind: string; name: string }>).detail;
       if (node && apiRef.current) openFileDoc(apiRef.current, node);
     };
+    const onOpenPage = (e: Event) => {
+      const page = (e as CustomEvent<{ id: string; name: string }>).detail;
+      if (page && apiRef.current) openPageDoc(apiRef.current, page, anchorPageIdRef.current);
+    };
     const onPerspective = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
       if (id) applyPerspective(id);
@@ -740,6 +844,7 @@ export function StudioDock() {
     window.addEventListener('eventium:reset-layout', onReset);
     window.addEventListener('eventium:open-panel', onOpenPanel as EventListener);
     window.addEventListener('eventium:open-file', onOpenFile as EventListener);
+    window.addEventListener('eventium:open-page', onOpenPage as EventListener);
     window.addEventListener('eventium:perspective', onPerspective as EventListener);
     window.addEventListener('keydown', onKey);
     return () => {
@@ -747,6 +852,7 @@ export function StudioDock() {
       window.removeEventListener('eventium:reset-layout', onReset);
       window.removeEventListener('eventium:open-panel', onOpenPanel as EventListener);
       window.removeEventListener('eventium:open-file', onOpenFile as EventListener);
+      window.removeEventListener('eventium:open-page', onOpenPage as EventListener);
       window.removeEventListener('eventium:perspective', onPerspective as EventListener);
       window.removeEventListener('keydown', onKey);
     };
@@ -788,7 +894,10 @@ export function StudioDock() {
               value={activeDashboard?.id ?? ''}
               onChange={(e) => {
                 const p = activeProject.pages.find((pg) => pg.id === e.target.value);
-                if (p) openPage(p);
+                if (p)
+                  window.dispatchEvent(
+                    new CustomEvent('eventium:open-page', { detail: { id: p.id, name: p.name } }),
+                  );
               }}
               title="Sayfa değiştir"
               className="max-w-[180px] cursor-pointer appearance-none rounded-md bg-transparent px-1 py-1 pr-5 text-[11px] font-medium text-[var(--color-text-secondary)] outline-none hover:bg-[var(--color-surface-hover)]"

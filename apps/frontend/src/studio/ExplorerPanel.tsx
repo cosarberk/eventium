@@ -42,10 +42,13 @@ const emitNewFile = (parentId: string | null) =>
 const emitOpenFile = (node: { id: string; kind: string; name: string }) =>
   window.dispatchEvent(new CustomEvent('eventium:open-file', { detail: node }));
 
+/** Ask the dock to open (or focus) a page's Designer document. */
+const emitOpenPage = (page: { id: string; name: string }) =>
+  window.dispatchEvent(new CustomEvent('eventium:open-page', { detail: page }));
+
 /** The Explorer panel. */
 export function ExplorerPanel() {
   const activeProject = useDashboardStore((s) => s.activeProject);
-  const openPage = useDashboardStore((s) => s.openPage);
   const addPage = useDashboardStore((s) => s.addPage);
   const removePageFromProject = useDashboardStore((s) => s.removePageFromProject);
   const activePageId = useDashboardStore((s) => s.activeDashboard?.id);
@@ -91,17 +94,21 @@ export function ExplorerPanel() {
     if (!node.refId) return;
     const existing = activeProject?.pages.find((p) => p.id === node.refId);
     if (existing) {
-      openPage(existing);
+      emitOpenPage({ id: existing.id, name: existing.name });
       return;
     }
-    // Freshly created page — pull the latest project pages, then open it.
+    // Freshly created page — pull the latest project pages, then open it. The
+    // page must be in the store before the Designer tab activates, otherwise the
+    // tab can't resolve its page.
     try {
       const projects = await fetchProjects();
       const page = projects
         .find((p) => p.id === activeProject?.id)
         ?.pages.find((p) => p.id === node.refId);
-      if (page) addPage(page);
-      else toast.error('Sayfa açılamadı');
+      if (page) {
+        addPage(page);
+        emitOpenPage({ id: page.id, name: page.name });
+      } else toast.error('Sayfa açılamadı');
     } catch {
       toast.error('Sayfa açılamadı');
     }
