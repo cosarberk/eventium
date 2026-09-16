@@ -96,6 +96,7 @@ export function useDashboard() {
         layout: { ...store.activeDashboard.layout, variables },
       },
     });
+    store.clearDirty();
   };
 
   return {

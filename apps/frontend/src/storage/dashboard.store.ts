@@ -46,6 +46,8 @@ interface DashboardState {
    * start screen, like a desktop IDE.
    */
   projectOpen: boolean;
+  /** Whether the active page has unsaved edits (cleared on save/open). */
+  dirty: boolean;
   /** Currently selected block id (drives the Inspector dock). */
   selectedBlockId: ID | null;
   /** Undo/redo history of block snapshots (structural edits). */
@@ -68,6 +70,8 @@ interface DashboardState {
   openPage: (page: Dashboard) => void;
   /** Appends a freshly created page to the open project and focuses it. */
   addPage: (page: Dashboard) => void;
+  /** Marks the active page as saved (no unsaved edits). */
+  clearDirty: () => void;
   /** Closes the open project and returns to the start screen. */
   closeProject: () => void;
   /**
@@ -126,6 +130,7 @@ export const useDashboardStore = create<DashboardState>()(
       dashboards: [],
       isEditMode: false,
       projectOpen: false,
+      dirty: false,
       selectedBlockId: null,
       past: [],
       future: [],
@@ -167,7 +172,13 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       setActiveDashboard: (dashboard) => {
-        set({ activeDashboard: dashboard, selectedBlockId: null, past: [], future: [] });
+        set({
+          activeDashboard: dashboard,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+          dirty: false,
+        });
       },
 
       openProject: (project) => {
@@ -179,11 +190,12 @@ export const useDashboardStore = create<DashboardState>()(
           selectedBlockId: null,
           past: [],
           future: [],
+          dirty: false,
         });
       },
 
       openPage: (page) => {
-        set({ activeDashboard: page, selectedBlockId: null, past: [], future: [] });
+        set({ activeDashboard: page, selectedBlockId: null, past: [], future: [], dirty: false });
       },
 
       addPage: (page) => {
@@ -194,8 +206,11 @@ export const useDashboardStore = create<DashboardState>()(
           selectedBlockId: null,
           past: [],
           future: [],
+          dirty: false,
         });
       },
+
+      clearDirty: () => set({ dirty: false }),
 
       closeProject: () => {
         set({ projectOpen: false, activeProject: null, selectedBlockId: null });
@@ -240,6 +255,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
           selectedBlockId: block.id,
         });
       },
@@ -268,6 +284,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
           selectedBlockId: block.id,
         });
       },
@@ -282,6 +299,7 @@ export const useDashboardStore = create<DashboardState>()(
           },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
           ...(get().selectedBlockId === id ? { selectedBlockId: null } : {}),
         });
       },
@@ -304,6 +322,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -315,6 +334,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -326,6 +346,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -337,6 +358,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -366,6 +388,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
           selectedBlockId: block.id,
         });
       },
@@ -391,6 +414,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, ...clones] },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
           selectedBlockId: lastId,
         });
         return clones.map((c) => c.id);
@@ -412,6 +436,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -425,6 +450,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 
@@ -446,6 +472,7 @@ export const useDashboardStore = create<DashboardState>()(
           activeDashboard: { ...dashboard, blocks },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
+          dirty: true,
         });
       },
 

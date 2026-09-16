@@ -607,6 +607,7 @@ export function StudioDock() {
   const redo = useDashboardStore((s) => s.redo);
   const canUndo = useDashboardStore((s) => s.past.length > 0);
   const canRedo = useDashboardStore((s) => s.future.length > 0);
+  const dirty = useDashboardStore((s) => s.dirty);
   const { saveLayout } = useDashboard();
   const { createNode } = useNodes(activeProject?.id);
   const [perspective, setPerspective] = useState<string>('design');
@@ -866,6 +867,7 @@ export function StudioDock() {
             />
           </svg>
           Kaydet
+          {dirty && <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />}
         </button>
 
         {/* Right: tool windows + reset */}
