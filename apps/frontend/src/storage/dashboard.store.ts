@@ -72,6 +72,11 @@ interface DashboardState {
   addPage: (page: Dashboard) => void;
   /** Marks the active page as saved (no unsaved edits). */
   clearDirty: () => void;
+  /**
+   * Removes a page from the open project (after it was deleted). If it was the
+   * active page, switches to another page, or leaves none (empty-project state).
+   */
+  removePageFromProject: (pageId: ID) => void;
   /** Closes the open project and returns to the start screen. */
   closeProject: () => void;
   /**
@@ -211,6 +216,20 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       clearDirty: () => set({ dirty: false }),
+
+      removePageFromProject: (pageId) => {
+        const { activeProject, activeDashboard } = get();
+        if (!activeProject) return;
+        const pages = activeProject.pages.filter((p) => p.id !== pageId);
+        const nextActive = activeDashboard?.id === pageId ? (pages[0] ?? null) : activeDashboard;
+        set({
+          activeProject: { ...activeProject, pages },
+          activeDashboard: nextActive,
+          ...(activeDashboard?.id === pageId
+            ? { selectedBlockId: null, past: [], future: [], dirty: false }
+            : {}),
+        });
+      },
 
       closeProject: () => {
         set({ projectOpen: false, activeProject: null, selectedBlockId: null });

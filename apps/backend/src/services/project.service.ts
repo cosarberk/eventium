@@ -41,7 +41,7 @@ export class ProjectService {
   /** Create a project with one empty starter page, owned by `ownerId`. */
   async create(ownerId: string, input: CreateProjectInput) {
     const type = input.type ?? 'dashboard';
-    return this.prisma.project.create({
+    const project = await this.prisma.project.create({
       data: {
         name: input.name,
         type,
@@ -60,6 +60,21 @@ export class ProjectService {
       },
       include: withPages,
     });
+    // Also add the starter page to the project's file tree as a `page` node, so
+    // it shows in the Project Explorer just like any other file.
+    const starter = project.pages[0];
+    if (starter) {
+      await this.prisma.node.create({
+        data: {
+          projectId: project.id,
+          kind: 'page',
+          name: starter.name,
+          refId: starter.id,
+          order: 0,
+        },
+      });
+    }
+    return project;
   }
 
   /**

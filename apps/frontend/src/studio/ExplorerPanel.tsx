@@ -47,10 +47,18 @@ export function ExplorerPanel() {
   const activeProject = useDashboardStore((s) => s.activeProject);
   const openPage = useDashboardStore((s) => s.openPage);
   const addPage = useDashboardStore((s) => s.addPage);
+  const removePageFromProject = useDashboardStore((s) => s.removePageFromProject);
   const activePageId = useDashboardStore((s) => s.activeDashboard?.id);
   const { nodes, isLoading, createNode, renameNode, deleteNode, moveNode } = useNodes(
     activeProject?.id,
   );
+
+  /** Delete a node; if it's a page, also drop it from the open project. */
+  const handleDelete = async (id: string) => {
+    const node = nodes.find((n) => n.id === id);
+    await deleteNode(id);
+    if (node?.kind === 'page' && node.refId) removePageFromProject(node.refId);
+  };
   const [dropRoot, setDropRoot] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; node: ProjectNode | null } | null>(null);
@@ -192,7 +200,7 @@ export function ExplorerPanel() {
               onOpenPage={openNode}
               onNewFile={emitNewFile}
               onRename={(id, name) => renameNode({ id, name })}
-              onDelete={(id) => deleteNode(id)}
+              onDelete={(id) => handleDelete(id)}
               onMove={handleMove}
               renamingId={renamingId}
               onStartEdit={setRenamingId}
@@ -213,7 +221,7 @@ export function ExplorerPanel() {
           onNewFolder={(parentId) => void newFolder(parentId)}
           onOpen={(n) => openNode(n)}
           onRename={(id) => setRenamingId(id)}
-          onDelete={(id) => deleteNode(id)}
+          onDelete={(id) => handleDelete(id)}
         />
       )}
     </div>
