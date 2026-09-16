@@ -98,6 +98,14 @@ export function StudioTab(props: IDockviewPanelHeaderProps) {
     // biome-ignore lint/a11y/noStaticElementInteractions: tab right-click menu; the tab itself is a dockview control
     <div
       className="studio-tab flex h-full items-center gap-1.5 pl-2.5 pr-1"
+      onMouseDown={(e) => {
+        // Middle-click closes the tab, the way every IDE does it.
+        if (e.button === 1) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeSelf();
+        }
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
