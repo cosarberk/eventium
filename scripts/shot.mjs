@@ -46,13 +46,15 @@ try {
     await page.waitForTimeout(800);
   }
 
-  // Optionally open a specific project by name from the Home project grid.
+  // Optionally open a specific project by name from the start-screen grid.
+  // Project cards are role="button" divs (they nest action buttons), so match
+  // both real buttons and role=button elements.
   const project = process.env.SHOT_PROJECT;
   if (project) {
     await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(500);
     await page
-      .locator('button', { hasText: project })
+      .locator('button, [role="button"]', { hasText: project })
       .first()
       .click()
       .catch(() => log('project not found:', project));
