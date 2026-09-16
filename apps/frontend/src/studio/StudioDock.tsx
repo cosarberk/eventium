@@ -20,7 +20,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BlockInspector } from '@/components/design/BlockInspector';
 import { useDashboard } from '@/hooks/useDashboard';
-import { useProjects } from '@/hooks/useProjects';
+import { useNodes } from '@/hooks/useNodes';
+import { fetchProjects } from '@/services/project.service';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 import { CodeEditor } from './CodeEditor';
@@ -585,7 +586,7 @@ export function StudioDock() {
   const canUndo = useDashboardStore((s) => s.past.length > 0);
   const canRedo = useDashboardStore((s) => s.future.length > 0);
   const { saveLayout } = useDashboard();
-  const { createPage } = useProjects();
+  const { createNode } = useNodes(activeProject?.id);
   const [perspective, setPerspective] = useState<string>('design');
 
   const handleSave = () => {
@@ -593,15 +594,23 @@ export function StudioDock() {
     toast.success('Kaydedildi');
   };
 
-  /** Add a new blank page to the open project and focus it. */
+  /**
+   * Add a new blank page to the open project and focus it. Routes through the
+   * node tree so the page also shows up in the Project Explorer as a `.ep` file.
+   */
   const handleNewPage = async () => {
     if (!activeProject) return;
     try {
-      const page = await createPage({
+      const node = await createNode({
         projectId: activeProject.id,
+        kind: 'page',
         name: `Sayfa ${activeProject.pages.length + 1}`,
       });
-      addPage(page);
+      const projects = await fetchProjects();
+      const page = projects
+        .find((p) => p.id === activeProject.id)
+        ?.pages.find((p) => p.id === node.refId);
+      if (page) addPage(page);
       toast.success('Sayfa eklendi');
     } catch (e) {
       toast.error(`Sayfa eklenemedi: ${(e as Error).message}`);
