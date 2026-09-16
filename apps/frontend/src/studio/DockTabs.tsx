@@ -7,6 +7,8 @@
  * title header of their own. Replaces dockview's default tab.
  */
 import type { IDockviewPanelHeaderProps } from 'dockview-react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSourceCapabilities } from '@/hooks/useSourceCapabilities';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import { useConsoleStore } from './console.store';
@@ -72,8 +74,29 @@ function PanelBadge({ id }: { id: string }) {
 /** The studio's tab renderer for every dock panel. */
 export function StudioTab(props: IDockviewPanelHeaderProps) {
   const title = props.api.title ?? '';
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  /** Panels sharing this tab's group. */
+  const groupPanels = () => props.api.group?.panels ?? [];
+
+  const closeSelf = () => props.api.close();
+  const closeOthers = () => {
+    for (const p of groupPanels()) if (p.id !== props.api.id) p.api.close();
+  };
+  const closeAllInGroup = () => {
+    for (const p of [...groupPanels()]) p.api.close();
+  };
+
   return (
-    <div className="studio-tab flex h-full items-center gap-1.5 pl-2.5 pr-1">
+    // biome-ignore lint/a11y/noStaticElementInteractions: tab right-click menu; the tab itself is a dockview control
+    <div
+      className="studio-tab flex h-full items-center gap-1.5 pl-2.5 pr-1"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+    >
       <span className="truncate text-[12px]">{title}</span>
       <PanelBadge id={props.api.id} />
       <button
@@ -81,7 +104,7 @@ export function StudioTab(props: IDockviewPanelHeaderProps) {
         aria-label="Kapat"
         onClick={(e) => {
           e.stopPropagation();
-          props.api.close();
+          closeSelf();
         }}
         className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
       >
@@ -94,6 +117,70 @@ export function StudioTab(props: IDockviewPanelHeaderProps) {
           />
         </svg>
       </button>
+
+      {menu && (
+        <TabMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: 'Kapat', run: closeSelf },
+            { label: 'Diğerlerini kapat', run: closeOthers },
+            { label: 'Gruptakileri kapat', run: closeAllInGroup },
+          ]}
+        />
+      )}
     </div>
+  );
+}
+
+/** Small right-click menu for a document tab. */
+function TabMenu({
+  x,
+  y,
+  onClose,
+  items,
+}: {
+  x: number;
+  y: number;
+  onClose: () => void;
+  items: { label: string; run: () => void }[];
+}) {
+  // Portal to body so the fixed menu isn't offset by dockview's transformed tabs.
+  return createPortal(
+    <>
+      <button
+        type="button"
+        aria-label="Menüyü kapat"
+        className="fixed inset-0 z-[9998] cursor-default"
+        onClick={onClose}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+      />
+      <div
+        className="fixed z-[9999] min-w-[168px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] py-1 shadow-xl"
+        style={{
+          left: Math.min(x, window.innerWidth - 180),
+          top: Math.min(y, window.innerHeight - 140),
+        }}
+      >
+        {items.map((it) => (
+          <button
+            key={it.label}
+            type="button"
+            onClick={() => {
+              onClose();
+              it.run();
+            }}
+            className="flex w-full items-center px-3 py-1.5 text-left text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>,
+    document.body,
   );
 }
