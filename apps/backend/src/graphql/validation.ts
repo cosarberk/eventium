@@ -119,6 +119,68 @@ export const createDashboardSchema = z.object({
 /** `updateDashboard` input. */
 export const updateDashboardSchema = createDashboardSchema.partial();
 
+/** A project-type id (dashboard/site/app/report/blank/…). */
+const projectTypeSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z][a-z0-9-]*$/, 'type must be a lowercase identifier');
+
+/** `createProject` input. */
+export const createProjectSchema = z.object({
+  name: z.string().trim().min(1).max(128),
+  type: projectTypeSchema.optional(),
+  description: z.string().max(1024).optional(),
+});
+
+/** `updateProject` input. */
+export const updateProjectSchema = z.object({
+  name: z.string().trim().min(1).max(128).optional(),
+  type: projectTypeSchema.optional(),
+  description: z.string().max(1024).optional(),
+});
+
+/** `createPage` input. */
+export const createPageSchema = z.object({
+  projectId: z.string().min(1).max(64),
+  name: z.string().trim().min(1).max(128),
+});
+
+/** A tree-node kind (folder or a file type id). */
+const nodeKindSchema = z
+  .string()
+  .min(1)
+  .max(32)
+  .regex(/^[a-z][a-z0-9-]*$/, 'kind must be a lowercase identifier');
+
+/** A tree-node display name (no path separators). */
+const nodeNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[^/\\]+$/, 'name may not contain slashes');
+
+/** `createNode` input. */
+export const createNodeSchema = z.object({
+  projectId: z.string().min(1).max(64),
+  parentId: z.string().min(1).max(64).nullish(),
+  kind: nodeKindSchema,
+  name: nodeNameSchema,
+});
+
+/** `renameNode` input. */
+export const renameNodeSchema = z.object({ name: nodeNameSchema });
+
+/** `moveNode` input. */
+export const moveNodeSchema = z.object({
+  parentId: z.string().min(1).max(64).nullish(),
+  order: z.coerce.number().int().min(0).max(100_000),
+});
+
+/** `setNodeData` content — an arbitrary JSON object (bounded). */
+export const nodeDataSchema = z.record(z.string().max(128), z.unknown());
+
 /** `installPlugin` input. */
 export const installPluginSchema = z.object({
   pluginId: z

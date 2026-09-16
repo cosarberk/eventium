@@ -34,8 +34,10 @@ import {
   DashboardService,
   DataSourceService,
   EventService,
+  NodeService,
   NotificationService,
   PagePortabilityService,
+  ProjectService,
 } from './services/index.js';
 import { isPublicError, logger, resolvePublicBaseUrl } from './utils/index.js';
 import { setupWebSocket } from './websocket/index.js';
@@ -178,6 +180,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   const dataSourceService = new DataSourceService(prisma, dataSourceManager);
   const bindingResolver = new BindingResolver(dataSourceService);
   const dashboardService = new DashboardService(prisma);
+  const projectService = new ProjectService(prisma);
+  const nodeService = new NodeService(prisma);
   const portabilityService = new PagePortabilityService(dashboardService);
   const notificationService = new NotificationService(prisma);
   const broadcastService = new BroadcastService(prisma);
@@ -215,6 +219,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       dataSourceService,
       bindingResolver,
       dashboardService,
+      projectService,
+      nodeService,
       portabilityService,
       notificationService,
       broadcastService,

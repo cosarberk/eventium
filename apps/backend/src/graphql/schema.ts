@@ -56,9 +56,61 @@ export const typeDefs = `
     description: String!
     layout: JSON!
     isDefault: Boolean!
+    projectId: String
+    pageOrder: Int!
     blocks: [DashboardBlock!]!
     createdAt: String!
     updatedAt: String!
+  }
+
+  """A project — the top-level unit that owns pages (dashboards)."""
+  type Project {
+    id: ID!
+    name: String!
+    """Project-type id (dashboard/site/app/report/blank) — focuses the editor."""
+    type: String!
+    description: String!
+    pages: [Dashboard!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  """Input for creating a project."""
+  input CreateProjectInput {
+    name: String!
+    type: String
+    description: String
+  }
+
+  """Input for updating a project."""
+  input UpdateProjectInput {
+    name: String
+    type: String
+    description: String
+  }
+
+  """A file-system node in a project's tree — a folder or a typed file."""
+  type Node {
+    id: ID!
+    projectId: String!
+    parentId: String
+    """folder | page | blueprint | datasource | script | component | variables | theme | …"""
+    kind: String!
+    name: String!
+    order: Int!
+    """For a page node: the Dashboard it opens."""
+    refId: String
+    data: JSON!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  """Input for creating a tree node (folder or file)."""
+  input CreateNodeInput {
+    projectId: ID!
+    parentId: ID
+    kind: String!
+    name: String!
   }
 
   """A component instance placed on a page. Slots hold cross-source bindings."""
@@ -259,6 +311,15 @@ export const typeDefs = `
     """Retrieve a single dashboard by ID."""
     dashboard(id: ID!): Dashboard
 
+    """List the authenticated user's projects, each with its pages."""
+    projects: [Project!]!
+
+    """Retrieve a single project by ID, with its pages."""
+    project(id: ID!): Project
+
+    """List a project's file-system tree (flat; assemble by parentId)."""
+    nodes(projectId: ID!): [Node!]!
+
     """Export a page to a portable, instance-agnostic PageSpec (JSON)."""
     exportPage(id: ID!): JSON!
 
@@ -284,6 +345,33 @@ export const typeDefs = `
 
     """Delete a dashboard."""
     deleteDashboard(id: ID!): Dashboard!
+
+    """Create a project (with one empty starter page)."""
+    createProject(input: CreateProjectInput!): Project!
+
+    """Update a project's name/type/description."""
+    updateProject(id: ID!, input: UpdateProjectInput!): Project!
+
+    """Delete a project and all of its pages."""
+    deleteProject(id: ID!): Project!
+
+    """Add a new empty page to a project."""
+    createPage(projectId: ID!, name: String!): Dashboard!
+
+    """Create a folder or typed file in a project's tree."""
+    createNode(input: CreateNodeInput!): Node!
+
+    """Rename a tree node (and its linked page, if any)."""
+    renameNode(id: ID!, name: String!): Node!
+
+    """Move a node under a new parent at a given order."""
+    moveNode(id: ID!, parentId: ID, order: Int!): Node!
+
+    """Delete a node, its descendants, and any pages they own."""
+    deleteNode(id: ID!): Node
+
+    """Replace a non-page file node's content JSON."""
+    setNodeData(id: ID!, data: JSON!): Node!
 
     """Import a portable PageSpec, mapping each source type to a local instance."""
     importPage(spec: JSON!, sourceMapping: JSON!): Dashboard!
