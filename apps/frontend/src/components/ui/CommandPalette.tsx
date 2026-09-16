@@ -7,8 +7,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useNodes } from '@/hooks/useNodes';
 import { hasRole, type Role, usePermissions } from '@/hooks/usePermissions';
 import { useTheme } from '@/hooks/useTheme';
+import { useDashboardStore } from '@/storage/dashboard.store';
+import { useCanvasPrefsStore } from '@/studio/canvas-prefs.store';
+import { fileLabel } from '@/studio/file-types';
+
+const emit = (name: string, detail?: string) =>
+  window.dispatchEvent(detail === undefined ? new Event(name) : new CustomEvent(name, { detail }));
 
 /** A runnable command. */
 interface Command {
@@ -37,6 +44,12 @@ export function CommandPalette() {
   const { logout } = useAuth();
   const { role } = usePermissions();
   const { toggle: toggleTheme } = useTheme();
+  const toggleGrid = useCanvasPrefsStore((s) => s.toggleGrid);
+  const projectOpen = useDashboardStore((s) => s.projectOpen);
+  const activeProject = useDashboardStore((s) => s.activeProject);
+  const openPage = useDashboardStore((s) => s.openPage);
+  const closeProject = useDashboardStore((s) => s.closeProject);
+  const { nodes } = useNodes(activeProject?.id);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,81 +78,172 @@ export function CommandPalette() {
     return () => clearTimeout(t);
   }, [open]);
 
-  const commands = useMemo<Command[]>(
-    () =>
-      (
-        [
-          { id: 'go-home', group: 'Go to', label: 'Home', run: () => navigate({ to: '/' }) },
-          {
-            id: 'go-boards',
-            group: 'Go to',
-            label: 'Boards',
-            run: () => navigate({ to: '/boards' }),
-          },
-          {
-            id: 'go-links',
-            group: 'Go to',
-            label: 'Linklerim',
-            minRole: 'EDITOR',
-            run: () => navigate({ to: '/links' }),
-          },
-          {
-            id: 'go-plugins',
-            group: 'Go to',
-            label: 'Plugins',
-            minRole: 'EDITOR',
-            run: () => navigate({ to: '/plugins' }),
-          },
-          {
-            id: 'go-live',
-            group: 'Go to',
-            label: 'Live View',
-            run: () => navigate({ to: '/live' }),
-          },
-          {
-            id: 'go-users',
-            group: 'Go to',
-            label: 'Users',
-            minRole: 'ADMIN',
-            run: () => navigate({ to: '/users' }),
-          },
-          {
-            id: 'go-settings',
-            group: 'Go to',
-            label: 'Settings',
-            run: () => navigate({ to: '/settings' }),
-          },
-          {
-            id: 'query-builder',
-            group: 'Actions',
-            label: 'Query Builder',
-            run: () => window.dispatchEvent(new Event('eventium:query-builder')),
-          },
-          {
-            id: 'blueprint',
-            group: 'Actions',
-            label: 'Blueprint (node editor)',
-            run: () => window.dispatchEvent(new Event('eventium:blueprint')),
-          },
-          { id: 'toggle-theme', group: 'Actions', label: 'Toggle theme', run: () => toggleTheme() },
-          {
-            id: 'change-password',
-            group: 'Account',
-            label: 'Change password',
-            run: () => navigate({ to: '/change-password' }),
-          },
-          {
-            id: 'logout',
-            group: 'Account',
-            label: 'Log out',
-            run: () => {
-              void logout().then(() => navigate({ to: '/login' }));
-            },
-          },
-        ] as Command[]
-      ).filter((c) => !c.minRole || hasRole(role, c.minRole)),
-    [navigate, logout, role, toggleTheme],
-  );
+  const commands = useMemo<Command[]>(() => {
+    const list: Command[] = [];
+
+    // ── Dosya ──
+    list.push({
+      id: 'new-project',
+      group: 'Dosya',
+      label: 'Yeni proje…',
+      run: () => navigate({ to: '/new' }),
+    });
+    if (projectOpen) {
+      list.push({
+        id: 'new-file',
+        group: 'Dosya',
+        label: 'Yeni dosya…',
+        run: () => emit('eventium:new-file', ''),
+      });
+      list.push({ id: 'save', group: 'Dosya', label: 'Kaydet', run: () => emit('eventium:save') });
+      list.push({
+        id: 'to-start',
+        group: 'Dosya',
+        label: 'Başlangıç ekranı',
+        run: () => {
+          closeProject();
+          navigate({ to: '/' });
+        },
+      });
+    }
+
+    // ── Sayfalara / dosyalara atla ──
+    if (projectOpen && activeProject) {
+      for (const p of activeProject.pages) {
+        list.push({
+          id: `page-${p.id}`,
+          group: 'Aç',
+          label: `📄 ${p.name}`,
+          run: () => openPage(p),
+        });
+      }
+      for (const n of nodes) {
+        if (n.kind === 'page' || n.kind === 'folder') continue;
+        list.push({
+          id: `file-${n.id}`,
+          group: 'Aç',
+          label: fileLabel(n.kind, n.name),
+          run: () =>
+            emit('eventium:open-file', JSON.stringify({ id: n.id, kind: n.kind, name: n.name })),
+        });
+      }
+    }
+
+    // ── Görünüm ──
+    if (projectOpen) {
+      for (const [pid, label] of [
+        ['design', 'Tasarım'],
+        ['data', 'Veri'],
+        ['logic', 'Mantık'],
+        ['preview', 'Önizleme'],
+      ] as const) {
+        list.push({
+          id: `persp-${pid}`,
+          group: 'Perspektif',
+          label,
+          run: () => emit('eventium:perspective', pid),
+        });
+      }
+      for (const [panel, label] of [
+        ['explorer', 'Proje'],
+        ['toolbox', 'Araç Kutusu'],
+        ['outline', 'Anahat'],
+        ['properties', 'Özellikler'],
+        ['data', 'Veri & Kaynaklar'],
+        ['problems', 'Sorunlar'],
+        ['console', 'Konsol'],
+        ['preview', 'Önizleme'],
+        ['source', 'Proje Kaynağı'],
+      ] as const) {
+        list.push({
+          id: `panel-${panel}`,
+          group: 'Panel',
+          label,
+          run: () => emit('eventium:open-panel', panel),
+        });
+      }
+      list.push({
+        id: 'blueprint',
+        group: 'Görünüm',
+        label: 'Blueprint',
+        run: () => emit('eventium:blueprint'),
+      });
+      list.push({
+        id: 'grid',
+        group: 'Görünüm',
+        label: 'Kare ızgara (aç/kapa)',
+        run: () => toggleGrid(),
+      });
+    }
+    list.push({
+      id: 'toggle-theme',
+      group: 'Görünüm',
+      label: 'Tema değiştir',
+      run: () => toggleTheme(),
+    });
+
+    // ── Git ──
+    const nav: Command[] = [
+      {
+        id: 'go-plugins',
+        group: 'Git',
+        label: 'Eklentiler',
+        minRole: 'EDITOR',
+        run: () => navigate({ to: '/plugins' }),
+      },
+      { id: 'go-live', group: 'Git', label: 'Canlı / TV', run: () => navigate({ to: '/live' }) },
+      {
+        id: 'go-links',
+        group: 'Git',
+        label: 'Linklerim',
+        minRole: 'EDITOR',
+        run: () => navigate({ to: '/links' }),
+      },
+      {
+        id: 'go-users',
+        group: 'Git',
+        label: 'Kullanıcılar',
+        minRole: 'ADMIN',
+        run: () => navigate({ to: '/users' }),
+      },
+      {
+        id: 'go-settings',
+        group: 'Git',
+        label: 'Ayarlar',
+        run: () => navigate({ to: '/settings' }),
+      },
+    ];
+    list.push(...nav);
+
+    // ── Hesap ──
+    list.push({
+      id: 'change-password',
+      group: 'Hesap',
+      label: 'Şifre değiştir',
+      run: () => navigate({ to: '/change-password' }),
+    });
+    list.push({
+      id: 'logout',
+      group: 'Hesap',
+      label: 'Çıkış yap',
+      run: () => {
+        void logout().then(() => navigate({ to: '/login' }));
+      },
+    });
+
+    return list.filter((c) => !c.minRole || hasRole(role, c.minRole));
+  }, [
+    navigate,
+    logout,
+    role,
+    toggleTheme,
+    toggleGrid,
+    projectOpen,
+    activeProject,
+    openPage,
+    closeProject,
+    nodes,
+  ]);
 
   const filtered = useMemo(() => {
     const s = query.trim().toLowerCase();

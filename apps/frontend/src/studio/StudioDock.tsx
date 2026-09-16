@@ -703,6 +703,10 @@ export function StudioDock() {
       const node = (e as CustomEvent<{ id: string; kind: string; name: string }>).detail;
       if (node && apiRef.current) openFileDoc(apiRef.current, node);
     };
+    const onPerspective = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) applyPerspective(id);
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -713,12 +717,14 @@ export function StudioDock() {
     window.addEventListener('eventium:reset-layout', onReset);
     window.addEventListener('eventium:open-panel', onOpenPanel as EventListener);
     window.addEventListener('eventium:open-file', onOpenFile as EventListener);
+    window.addEventListener('eventium:perspective', onPerspective as EventListener);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('eventium:save', onSave);
       window.removeEventListener('eventium:reset-layout', onReset);
       window.removeEventListener('eventium:open-panel', onOpenPanel as EventListener);
       window.removeEventListener('eventium:open-file', onOpenFile as EventListener);
+      window.removeEventListener('eventium:perspective', onPerspective as EventListener);
       window.removeEventListener('keydown', onKey);
     };
   });
