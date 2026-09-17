@@ -60,21 +60,74 @@ export class ProjectService {
       },
       include: withPages,
     });
-    // Also add the starter page to the project's file tree as a `page` node, so
-    // it shows in the Project Explorer just like any other file.
-    const starter = project.pages[0];
-    if (starter) {
+    // Scaffold the project's file tree: a conventional folder layout the user is
+    // free to change, rename, or delete. The starter page lands under `pages/`,
+    // with starter theme and variables files so the project runs out of the box.
+    await this.scaffold(project.id, project.pages[0]);
+    return project;
+  }
+
+  /** Seed content for scaffolded files (mirrors the client's file seeds). */
+  private static readonly THEME_SEED =
+    '/* Tema — CSS değişkenleri. Çalıştır önizlemesinde sayfaya uygulanır. */\n' +
+    '--color-brand-500: #6366f1;\n' +
+    '--color-bg-primary: #0a0e17;\n' +
+    '--color-accent-500: #06b6d4;\n';
+  private static readonly VARIABLES_SEED = '{\n  "example": "value"\n}\n';
+
+  /**
+   * Create the default folder tree and starter files for a new project. Folders
+   * are a convention, not a constraint — nothing keys off their names, only off
+   * file types, so the user can restructure freely afterwards.
+   */
+  private async scaffold(projectId: string, starterPage?: { id: string; name: string }) {
+    // Root folders, in display order.
+    const folders = ['pages', 'components', 'models', 'scripts', 'theme'];
+    const folderId: Record<string, string> = {};
+    for (let i = 0; i < folders.length; i++) {
+      const node = await this.prisma.node.create({
+        data: { projectId, parentId: null, kind: 'folder', name: folders[i], order: i },
+      });
+      folderId[folders[i]] = node.id;
+    }
+
+    // The starter page, inside `pages/`.
+    if (starterPage) {
       await this.prisma.node.create({
         data: {
-          projectId: project.id,
+          projectId,
+          parentId: folderId.pages,
           kind: 'page',
-          name: starter.name,
-          refId: starter.id,
+          name: starterPage.name,
+          refId: starterPage.id,
           order: 0,
         },
       });
     }
-    return project;
+
+    // Starter theme file inside `theme/`.
+    await this.prisma.node.create({
+      data: {
+        projectId,
+        parentId: folderId.theme,
+        kind: 'theme',
+        name: 'theme',
+        order: 0,
+        data: { content: ProjectService.THEME_SEED } as Prisma.InputJsonValue,
+      },
+    });
+
+    // Starter variables file at the project root.
+    await this.prisma.node.create({
+      data: {
+        projectId,
+        parentId: null,
+        kind: 'variables',
+        name: 'variables',
+        order: folders.length,
+        data: { content: ProjectService.VARIABLES_SEED } as Prisma.InputJsonValue,
+      },
+    });
   }
 
   /**
