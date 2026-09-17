@@ -9,6 +9,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getComponent } from '@/components/design/registry';
+import type { ComponentDef } from '@/studio/component-file';
 import type { BlockSlot, Dashboard, DashboardBlock, ID, Project } from '@/types';
 
 /** A single grid item (position + size) as reported by react-grid-layout. */
@@ -116,6 +117,8 @@ interface DashboardState {
   patchLayout: (patch: Record<string, unknown>) => void;
   /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
   addBlockWithFrame: (componentType: string, at: { x: number; y: number }) => void;
+  /** Instance a reusable `.ec` component definition; `at` gives a canvas drop point. */
+  addBlockFromDef: (def: ComponentDef, at?: { x: number; y: number }) => void;
   /**
    * Clones the given block snapshots as new blocks, offsetting any free-canvas
    * frame, selecting the last, and returning the new ids. Powers duplicate
@@ -402,6 +405,44 @@ export const useDashboardStore = create<DashboardState>()(
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
           dirty: true,
+        });
+      },
+
+      addBlockFromDef: (def, at) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(def.componentType)?.descriptor;
+        // Slots from the definition, or an empty set per the descriptor.
+        const slots: Record<string, BlockSlot> =
+          def.slots ??
+          Object.fromEntries((descriptor?.slots ?? []).map((s) => [s.key, { values: [] }]));
+        const gw = descriptor?.defaultWidth ?? 4;
+        const gh = descriptor?.defaultHeight ?? 3;
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        // Position is per-instance: a drop point becomes a free-canvas frame; the
+        // grid falls back to the bottom row.
+        const options: Record<string, unknown> = { ...(def.options ?? {}) };
+        if (at) options.frame = { x: at.x, y: at.y, w: gw * 80, h: gh * 60 };
+        else delete options.frame;
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType: def.componentType,
+          title: def.title ?? descriptor?.label ?? def.componentType,
+          slots,
+          options,
+          position: { x: 0, y: bottom },
+          size: { w: gw, h: gh },
+          sortOrder: sortOrderFor(bottom, 0),
+        };
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: block.id,
         });
       },
 

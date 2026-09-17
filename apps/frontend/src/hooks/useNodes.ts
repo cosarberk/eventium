@@ -9,6 +9,7 @@ import {
   fetchNodes,
   moveNode,
   renameNode,
+  updateNodeData,
 } from '@/services/node.service';
 
 const nodeKeys = {
@@ -42,6 +43,11 @@ export function useNodes(projectId: string | undefined) {
   });
   const deleteMutation = useMutation({ mutationFn: deleteNode, onSuccess: invalidate });
   const duplicateMutation = useMutation({ mutationFn: duplicateNode, onSuccess: invalidate });
+  const setDataMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      updateNodeData(id, data),
+    onSuccess: invalidate,
+  });
 
   return {
     nodes: nodesQuery.data ?? [],
@@ -54,5 +60,6 @@ export function useNodes(projectId: string | undefined) {
     moveNode: moveMutation.mutateAsync,
     deleteNode: deleteMutation.mutateAsync,
     duplicateNode: duplicateMutation.mutateAsync,
+    setNodeData: setDataMutation.mutateAsync,
   };
 }

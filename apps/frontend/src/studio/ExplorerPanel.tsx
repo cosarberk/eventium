@@ -378,7 +378,16 @@ function TreeItem({
         onDragStart={(e) => {
           e.stopPropagation();
           e.dataTransfer.setData('application/eventium-node', node.id);
-          e.dataTransfer.effectAllowed = 'move';
+          // A `.ec` component file also carries its definition, so it can be
+          // dropped onto the canvas to instance a block.
+          const content =
+            node.kind === 'component' ? (node.data as { content?: unknown } | null)?.content : null;
+          if (typeof content === 'string') {
+            e.dataTransfer.setData('application/eventium-component', content);
+            e.dataTransfer.effectAllowed = 'copyMove';
+          } else {
+            e.dataTransfer.effectAllowed = 'move';
+          }
         }}
         onDragOver={
           isFolder

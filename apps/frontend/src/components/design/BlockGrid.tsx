@@ -11,6 +11,7 @@ import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout';
 import { BlockRenderer } from '@/components/design/BlockRenderer';
 import { blocksToLayout, GRID_COLS, layoutRowCount } from '@/components/panels/layout';
 import type { GridItem } from '@/storage/dashboard.store';
+import { type ComponentDef, parseComponentDef } from '@/studio/component-file';
 import type { LayoutMode } from '@/studio/project-types';
 import type { DashboardBlock } from '@/types';
 // Side-effect: registers all component renderers into the design registry.
@@ -60,6 +61,8 @@ export interface BlockGridProps {
    * canvas, with its type and the grid cell it landed on (builder only).
    */
   onExternalDrop?: (componentType: string, at: { x: number; y: number }) => void;
+  /** Instance a reusable `.ec` component definition dropped from the Explorer. */
+  onAddComponentDef?: (def: ComponentDef) => void;
 }
 
 /** Placeholder shown while dragging a palette item over the canvas. */
@@ -82,6 +85,7 @@ export function BlockGrid({
   onOpenBlockEditor,
   layoutMode = 'grid',
   onExternalDrop,
+  onAddComponentDef,
 }: BlockGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -114,10 +118,18 @@ export function BlockGrid({
     onLayoutChange?.(next.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
   };
 
-  const droppable = editing && Boolean(onExternalDrop);
-  /** Read the dragged component type from the drop event and place it. */
+  const droppable = editing && Boolean(onExternalDrop || onAddComponentDef);
+  /** Read the dragged item from the drop event and place it. */
   const handleDrop = (_layout: Layout[], item: Layout, e: Event) => {
-    const type = (e as DragEvent).dataTransfer?.getData('text/plain');
+    const dt = (e as DragEvent).dataTransfer;
+    // A `.ec` component definition dropped from the Explorer instances here.
+    const ecRaw = dt?.getData('application/eventium-component');
+    if (ecRaw && onAddComponentDef) {
+      const def = parseComponentDef(ecRaw);
+      if (def) onAddComponentDef(def);
+      return;
+    }
+    const type = dt?.getData('text/plain');
     if (type && onExternalDrop) onExternalDrop(type, { x: item.x, y: item.y });
   };
 

@@ -24,6 +24,7 @@ export function CanvasSurface({ editing, onOpenCode }: CanvasSurfaceProps) {
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const addBlock = useDashboardStore((s) => s.addBlock);
   const addBlockWithFrame = useDashboardStore((s) => s.addBlockWithFrame);
+  const addBlockFromDef = useDashboardStore((s) => s.addBlockFromDef);
   const removeBlock = useDashboardStore((s) => s.removeBlock);
   const updateBlockLayout = useDashboardStore((s) => s.updateBlockLayout);
 
@@ -45,6 +46,7 @@ export function CanvasSurface({ editing, onOpenCode }: CanvasSurfaceProps) {
         onRemove={removeBlock}
         onConfigure={(id) => selectBlock(id)}
         onAddAt={(type, x, y) => addBlockWithFrame(type, { x, y })}
+        onAddComponentDef={(def, x, y) => addBlockFromDef(def, { x, y })}
       />
     );
   }
@@ -59,6 +61,7 @@ export function CanvasSurface({ editing, onOpenCode }: CanvasSurfaceProps) {
           layoutMode={layoutMode}
           selectedId={selectedId}
           onExternalDrop={(type, at) => addBlock(type, at)}
+          onAddComponentDef={(def) => addBlockFromDef(def)}
           onSelectBlock={(id) => selectBlock(id)}
           onOpenBlockEditor={(id) => {
             selectBlock(id);

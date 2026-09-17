@@ -26,6 +26,7 @@ import { useDashboardStore } from '@/storage/dashboard.store';
 import { CanvasSurface } from './CanvasSurface';
 import { CodeEditor } from './CodeEditor';
 import { ConsolePanel } from './ConsolePanel';
+import { serializeComponentFile } from './component-file';
 import { DataSourcesPanel } from './DataSourcesPanel';
 import { StudioTab } from './DockTabs';
 import { ExplorerPanel } from './ExplorerPanel';
@@ -589,13 +590,33 @@ function BlueprintPanel(props: IDockviewPanelProps<{ blockId: string }>) {
 /** Properties document — the block inspector. */
 function PropertiesPanel() {
   const activeDashboard = useDashboardStore((s) => s.activeDashboard);
+  const activeProjectId = useDashboardStore((s) => s.activeProject?.id);
   const selectedId = useDashboardStore((s) => s.selectedBlockId);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const updateBlockTitle = useDashboardStore((s) => s.updateBlockTitle);
   const updateBlockSlots = useDashboardStore((s) => s.updateBlockSlots);
   const updateBlockOptions = useDashboardStore((s) => s.updateBlockOptions);
+  const { nodes, createNode, setNodeData } = useNodes(activeProjectId);
 
   const block = activeDashboard?.blocks?.find((b) => b.id === selectedId) ?? null;
+
+  /** Save this block as a reusable `.ec` component file under `components/`. */
+  const saveAsComponent = async () => {
+    if (!block || !activeProjectId) return;
+    const folder = nodes.find((n) => n.kind === 'folder' && n.name === 'components');
+    try {
+      const node = await createNode({
+        projectId: activeProjectId,
+        parentId: folder?.id ?? null,
+        kind: 'component',
+        name: block.title || block.componentType,
+      });
+      await setNodeData({ id: node.id, data: { content: serializeComponentFile(block) } });
+      toast.success('Bileşen olarak kaydedildi — tuvale sürükleyerek örnekle.');
+    } catch (e) {
+      toast.error(`Kaydedilemedi: ${(e as Error).message}`);
+    }
+  };
 
   if (!block) {
     return (
@@ -605,14 +626,26 @@ function PropertiesPanel() {
     );
   }
   return (
-    <div className="h-full overflow-auto bg-[var(--color-bg-secondary)]">
-      <BlockInspector
-        block={block}
-        onTitleChange={(title) => updateBlockTitle(block.id, title)}
-        onSlotsChange={(slots) => updateBlockSlots(block.id, slots)}
-        onOptionsChange={(options) => updateBlockOptions(block.id, options)}
-        onClose={() => selectBlock(null)}
-      />
+    <div className="flex h-full flex-col bg-[var(--color-bg-secondary)]">
+      <div className="shrink-0 border-b border-[var(--color-border-primary)] p-1.5">
+        <button
+          type="button"
+          onClick={saveAsComponent}
+          title="Bu bileşeni components/ altında yeniden kullanılabilir bir .ec dosyası olarak kaydet"
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border-primary)] px-2 py-1.5 text-[11px] font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+        >
+          🧩 Bileşen olarak kaydet
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <BlockInspector
+          block={block}
+          onTitleChange={(title) => updateBlockTitle(block.id, title)}
+          onSlotsChange={(slots) => updateBlockSlots(block.id, slots)}
+          onOptionsChange={(options) => updateBlockOptions(block.id, options)}
+          onClose={() => selectBlock(null)}
+        />
+      </div>
     </div>
   );
 }

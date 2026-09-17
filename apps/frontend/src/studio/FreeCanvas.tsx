@@ -30,6 +30,7 @@ import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 import { useCanvasPrefsStore } from './canvas-prefs.store';
 import { useCanvasStatusStore } from './canvas-status.store';
+import { type ComponentDef, parseComponentDef } from './component-file';
 import { TOOLS, useToolStore } from './tool.store';
 
 /** Absolute canvas geometry, in surface pixels. */
@@ -114,6 +115,8 @@ export interface FreeCanvasProps {
   onRemove?: (id: string) => void;
   onConfigure?: (id: string) => void;
   onAddAt?: (componentType: string, x: number, y: number) => void;
+  /** Instance a reusable `.ec` component definition at a canvas drop point. */
+  onAddComponentDef?: (def: ComponentDef, x: number, y: number) => void;
 }
 
 /** The free-canvas viewport. */
@@ -126,6 +129,7 @@ export function FreeCanvas({
   onRemove,
   onConfigure,
   onAddAt,
+  onAddComponentDef,
 }: FreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
@@ -602,9 +606,19 @@ export function FreeCanvas({
       onWheel={onWheel}
       onPointerDown={onBackgroundPointerDown}
       onDragOver={(e) => {
-        if (onAddAt) e.preventDefault();
+        if (onAddAt || onAddComponentDef) e.preventDefault();
       }}
       onDrop={(e) => {
+        // A `.ec` component definition dropped from the Explorer instances here.
+        const ecRaw = e.dataTransfer.getData('application/eventium-component');
+        if (ecRaw && onAddComponentDef) {
+          const def = parseComponentDef(ecRaw);
+          if (def) {
+            const p = toSurface(e.clientX, e.clientY);
+            onAddComponentDef(def, round(p.x), round(p.y));
+          }
+          return;
+        }
         const type = e.dataTransfer.getData('text/plain');
         if (type && onAddAt) {
           const p = toSurface(e.clientX, e.clientY);
