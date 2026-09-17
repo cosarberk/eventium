@@ -37,7 +37,14 @@ function seedFor(kind: string): string {
     case 'variables':
       return '{\n  "example": "value"\n}\n';
     case 'datasource':
-      return '{\n  "source": "",\n  "query": {}\n}\n';
+      // A dataset is a JSON array of rows. A component binds to it by reference
+      // (ed:<dosya>.<alan>); each object key is a bindable field.
+      return (
+        '[\n' +
+        '  { "id": 1, "label": "Örnek A", "value": 100 },\n' +
+        '  { "id": 2, "label": "Örnek B", "value": 200 }\n' +
+        ']\n'
+      );
     default:
       return '{\n}\n';
   }

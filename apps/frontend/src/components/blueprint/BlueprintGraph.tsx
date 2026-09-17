@@ -35,6 +35,7 @@ import { parseFieldRef } from '@eventium/shared';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef } from 'react';
 import { getComponent, listComponentDescriptors } from '@/components/design/registry';
+import { useNodes } from '@/hooks/useNodes';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 
@@ -70,42 +71,54 @@ function blocksToNodes(
   });
 }
 
-/** The distinct data-source types a block is bound to (from its slot bindings). */
-function blockSourceTypes(b: DashboardBlock): string[] {
-  const types = new Set<string>();
+/** One data source a block binds to. Datasets (`ed:`) are distinct per file. */
+interface BlockSource {
+  key: string; // dataset: `ed-<nodeId>`; plugin: the sourceType
+  sourceType: string;
+  entity: string;
+}
+
+/** The distinct data sources a block is bound to (from its slot bindings). */
+function blockSources(b: DashboardBlock): BlockSource[] {
+  const byKey = new Map<string, BlockSource>();
   for (const slot of Object.values(b.slots)) {
     for (const value of slot.values ?? []) {
-      const ref = value.binding?.ref;
-      const parsed = ref ? parseFieldRef(ref) : null;
-      if (parsed) types.add(parsed.sourceType);
+      const parsed = value.binding?.ref ? parseFieldRef(value.binding.ref) : null;
+      if (!parsed) continue;
+      // Datasets are one node per file; plugin sources collapse by type.
+      const key = parsed.sourceType === 'ed' ? `ed-${parsed.entity}` : parsed.sourceType;
+      byKey.set(key, { key, sourceType: parsed.sourceType, entity: parsed.entity });
     }
   }
-  return [...types];
+  return [...byKey.values()];
 }
 
 /**
- * Derive data-source nodes and their edges into the blocks that bind them.
- * A source node sits left of the blocks that consume it; the edge shows the
- * live data flow (source → component).
+ * Derive data-source nodes and their edges into the blocks that bind them. A
+ * source node sits left of the blocks that consume it; the edge shows the data
+ * flow (source → component). Datasets are labelled by their `.ed` file name.
  */
 function deriveDataFlow(
   blocks: readonly DashboardBlock[],
   nodePos: Map<string, { x: number; y: number }>,
+  datasetNames: Map<string, string>,
 ): { sourceNodes: Node[]; sourceEdges: Edge[] } {
-  const consumers = new Map<string, string[]>(); // sourceType -> blockIds
+  const consumers = new Map<string, { src: BlockSource; blockIds: string[] }>();
   for (const b of blocks) {
-    for (const st of blockSourceTypes(b)) {
-      const list = consumers.get(st) ?? [];
-      list.push(b.id);
-      consumers.set(st, list);
+    for (const src of blockSources(b)) {
+      const entry = consumers.get(src.key) ?? { src, blockIds: [] };
+      entry.blockIds.push(b.id);
+      consumers.set(src.key, entry);
     }
   }
   const sourceNodes: Node[] = [];
   const sourceEdges: Edge[] = [];
   let i = 0;
-  for (const [sourceType, blockIds] of consumers) {
+  for (const [key, { src, blockIds }] of consumers) {
     // No colon in the id — React Flow uses it internally for handle lookup.
-    const id = `dsrc-${sourceType}`;
+    const id = `dsrc-${key}`;
+    const label =
+      src.sourceType === 'ed' ? (datasetNames.get(src.entity) ?? 'veri') : src.sourceType;
     // Place the source to the left of the topmost consumer it feeds.
     const ys = blockIds.map((bid) => nodePos.get(bid)?.y ?? 80);
     const minY = Math.min(...ys);
@@ -114,11 +127,11 @@ function deriveDataFlow(
       type: 'source',
       position: { x: -240, y: minY + i * 20 },
       draggable: true,
-      data: { sourceType },
+      data: { sourceType: src.sourceType, label },
     });
     for (const bid of blockIds) {
       sourceEdges.push({
-        id: `flow-${sourceType}-${bid}`,
+        id: `flow-${key}-${bid}`,
         source: id,
         target: bid,
         animated: true,
@@ -132,17 +145,17 @@ function deriveDataFlow(
 
 /** A data-source node card (cyan accent — it's the data inlet). */
 function SourceNode({ data }: NodeProps) {
-  const d = data as { sourceType: string };
+  const d = data as { sourceType: string; label: string };
   return (
     <div className="min-w-[130px] rounded-lg border border-[var(--color-accent-500)]/60 bg-[var(--color-bg-elevated)] px-3 py-2 shadow-md">
       <div className="mb-0.5 flex items-center gap-1.5">
         <span className="text-sm leading-none">🗄️</span>
         <span className="rounded bg-[var(--color-accent-500)]/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-accent-500)]">
-          Kaynak
+          {d.sourceType === 'ed' ? '.ed' : d.sourceType}
         </span>
       </div>
       <div className="truncate text-[12px] font-medium text-[var(--color-text-primary)]">
-        {d.sourceType}
+        {d.label}
       </div>
       <Handle
         type="source"
@@ -200,6 +213,15 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
   // Stable reference so the layout effects don't re-run every render.
   const savedPos: NodePositions = useMemo(() => savedNodes ?? {}, [savedNodes]);
 
+  // Map dataset node id → file name, so `.ed` source nodes show their name.
+  const projectId = useDashboardStore((s) => s.activeProject?.id);
+  const { nodes: fileNodes } = useNodes(projectId);
+  const datasetNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of fileNodes) if (n.kind === 'datasource') m.set(n.id, n.name);
+    return m;
+  }, [fileNodes]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
     blocksToNodes(blocks, selectedId, savedPos),
   );
@@ -212,18 +234,18 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
     if (dragging.current) return;
     const compNodes = blocksToNodes(blocks, selectedId, savedPos);
     const pos = new Map(compNodes.map((n) => [n.id, n.position]));
-    const { sourceNodes } = deriveDataFlow(blocks, pos);
+    const { sourceNodes } = deriveDataFlow(blocks, pos, datasetNames);
     setNodes([...compNodes, ...sourceNodes]);
-  }, [blocks, selectedId, savedPos, setNodes]);
+  }, [blocks, selectedId, savedPos, datasetNames, setNodes]);
 
   // Saved (user) edges + derived data-flow edges → set into edge state.
   // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on blocks/edges content
   useEffect(() => {
     const compNodes = blocksToNodes(blocks, selectedId, savedPos);
     const pos = new Map(compNodes.map((n) => [n.id, n.position]));
-    const { sourceEdges } = deriveDataFlow(blocks, pos);
+    const { sourceEdges } = deriveDataFlow(blocks, pos, datasetNames);
     setEdges([...toFlowEdges(savedEdges), ...sourceEdges]);
-  }, [savedEdges, blocks, savedPos, setEdges]);
+  }, [savedEdges, blocks, savedPos, datasetNames, setEdges]);
 
   const persist = (next: Edge[]) =>
     setBlueprintEdges(
