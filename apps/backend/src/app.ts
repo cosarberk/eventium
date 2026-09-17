@@ -178,7 +178,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerSourcesFromManifests(dataSourceManager);
   const eventService = new EventService(prisma);
   const dataSourceService = new DataSourceService(prisma, dataSourceManager);
-  const bindingResolver = new BindingResolver(dataSourceService);
+  const bindingResolver = new BindingResolver(dataSourceService, prisma);
   const dashboardService = new DashboardService(prisma);
   const projectService = new ProjectService(prisma);
   const nodeService = new NodeService(prisma);
