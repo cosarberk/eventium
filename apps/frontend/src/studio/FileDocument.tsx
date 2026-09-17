@@ -34,6 +34,17 @@ function seedFor(kind: string): string {
         '--color-bg-primary: #0a0e17;\n' +
         '--color-accent-500: #06b6d4;\n'
       );
+    case 'component':
+      // A reusable component definition. Usually created via "save as component"
+      // from a block; this seed is a valid, instanceable starting point.
+      return (
+        '{\n' +
+        '  "componentType": "text",\n' +
+        '  "title": "Yeni bileşen",\n' +
+        '  "options": {},\n' +
+        '  "slots": {}\n' +
+        '}\n'
+      );
     case 'variables':
       return '{\n  "example": "value"\n}\n';
     case 'datasource':
