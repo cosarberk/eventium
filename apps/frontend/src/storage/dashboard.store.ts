@@ -109,6 +109,7 @@ interface DashboardState {
   updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
   /** Persist the blueprint component-graph edges into the active page's layout. */
   setBlueprintEdges: (edges: { id: string; source: string; target: string }[]) => void;
+  setBlueprintNodePosition: (id: ID, pos: { x: number; y: number }) => void;
   /** Replace the whole block array (from the Page Source editor). */
   replaceBlocks: (blocks: DashboardBlock[]) => void;
   /** Merge fields into the active page's layout blob (design settings, links). */
@@ -324,10 +325,20 @@ export const useDashboardStore = create<DashboardState>()(
       removeBlock: (id) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
+        // Drop the block's blueprint node position too, so it leaves no orphan.
+        const layout = dashboard.layout as {
+          blueprintNodes?: Record<string, { x: number; y: number }>;
+        };
+        let nextLayout = dashboard.layout;
+        if (layout.blueprintNodes && id in layout.blueprintNodes) {
+          const { [id]: _drop, ...rest } = layout.blueprintNodes;
+          nextLayout = { ...dashboard.layout, blueprintNodes: rest };
+        }
         set({
           activeDashboard: {
             ...dashboard,
             blocks: dashboard.blocks.filter((b) => b.id !== id),
+            layout: nextLayout,
           },
           past: [...get().past, dashboard.blocks].slice(-50),
           future: [],
@@ -494,6 +505,21 @@ export const useDashboardStore = create<DashboardState>()(
             ...dashboard,
             layout: { ...dashboard.layout, blueprintEdges: edges },
           },
+        });
+      },
+
+      setBlueprintNodePosition: (id, pos) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const prev =
+          (dashboard.layout as { blueprintNodes?: Record<string, { x: number; y: number }> })
+            .blueprintNodes ?? {};
+        set({
+          activeDashboard: {
+            ...dashboard,
+            layout: { ...dashboard.layout, blueprintNodes: { ...prev, [id]: pos } },
+          },
+          dirty: true,
         });
       },
 

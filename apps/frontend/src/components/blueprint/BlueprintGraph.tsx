@@ -3,9 +3,13 @@
  *
  * Every block on the page is a node here; the graph is just another view of the
  * same source of truth. Adding a node creates a component (and its code/design);
- * dragging a node moves the component on the canvas; deleting a node deletes the
- * block; connecting two nodes records a component→component link on the page.
- * Clicking a node selects it so the Inspector and Code follow.
+ * deleting a node deletes the block; connecting two nodes records a
+ * component→component link on the page. Clicking a node selects it so the
+ * Inspector and Code follow.
+ *
+ * Node layout is the blueprint's OWN concern: positions live in
+ * `layout.blueprintNodes` and are independent of where the component sits on the
+ * design canvas — dragging a node here never moves the component there.
  */
 import {
   addEdge,
@@ -29,34 +33,37 @@ import {
 import '@xyflow/react/dist/style.css';
 import { parseFieldRef } from '@eventium/shared';
 import { motion } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { getComponent, listComponentDescriptors } from '@/components/design/registry';
 import { useDashboardStore } from '@/storage/dashboard.store';
 import type { DashboardBlock } from '@/types';
 
-const DEFAULT_W = 220;
-const DEFAULT_H = 90;
+/** A blockId → saved blueprint position map. */
+type NodePositions = Record<string, { x: number; y: number }>;
 
-/** A block's blueprint position/size (from its free-canvas frame, or derived). */
-function frameXY(b: DashboardBlock): { x: number; y: number; w: number; h: number } {
-  const fr = b.options.frame as { x?: number; y?: number; w?: number; h?: number } | undefined;
-  return {
-    x: typeof fr?.x === 'number' ? fr.x : b.position.x * 90 + 40,
-    y: typeof fr?.y === 'number' ? fr.y : b.position.y * 80 + 40,
-    w: typeof fr?.w === 'number' ? fr.w : DEFAULT_W,
-    h: typeof fr?.h === 'number' ? fr.h : DEFAULT_H,
-  };
+/**
+ * A block's blueprint node position — the graph's own saved position if the user
+ * has placed it, otherwise a derived default. Never reads the design frame, so
+ * the two views stay independent.
+ */
+function nodeXY(b: DashboardBlock, saved: NodePositions): { x: number; y: number } {
+  const sp = saved[b.id];
+  if (sp && typeof sp.x === 'number' && typeof sp.y === 'number') return sp;
+  return { x: b.position.x * 90 + 40, y: b.position.y * 80 + 40 };
 }
 
 /** Project the page's blocks to graph nodes. */
-function blocksToNodes(blocks: readonly DashboardBlock[], selectedId: string | null): Node[] {
+function blocksToNodes(
+  blocks: readonly DashboardBlock[],
+  selectedId: string | null,
+  saved: NodePositions,
+): Node[] {
   return blocks.map((b) => {
     const d = getComponent(b.componentType)?.descriptor;
-    const f = frameXY(b);
     return {
       id: b.id,
       type: 'component',
-      position: { x: f.x, y: f.y },
+      position: nodeXY(b, saved),
       selected: b.id === selectedId,
       data: { icon: d?.icon ?? '🧩', label: d?.label ?? b.componentType, title: b.title },
     };
@@ -178,7 +185,7 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
   const selectedId = useDashboardStore((s) => s.selectedBlockId);
   const selectBlock = useDashboardStore((s) => s.selectBlock);
   const removeBlock = useDashboardStore((s) => s.removeBlock);
-  const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
+  const setBlueprintNodePosition = useDashboardStore((s) => s.setBlueprintNodePosition);
   const addBlockWithFrame = useDashboardStore((s) => s.addBlockWithFrame);
   const setBlueprintEdges = useDashboardStore((s) => s.setBlueprintEdges);
   const savedEdges = useDashboardStore(
@@ -186,30 +193,37 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
       (s.activeDashboard?.layout as { blueprintEdges?: PersistedEdge[] } | undefined)
         ?.blueprintEdges,
   );
+  const savedNodes = useDashboardStore(
+    (s) =>
+      (s.activeDashboard?.layout as { blueprintNodes?: NodePositions } | undefined)?.blueprintNodes,
+  );
+  // Stable reference so the layout effects don't re-run every render.
+  const savedPos: NodePositions = useMemo(() => savedNodes ?? {}, [savedNodes]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(blocksToNodes(blocks, selectedId));
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
+    blocksToNodes(blocks, selectedId, savedPos),
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(toFlowEdges(savedEdges));
   const dragging = useRef(false);
 
   // Blocks → nodes + derived data-source nodes, set into state so React Flow
   // owns stable node objects (needed for edge handle measurement).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on block/selection content
   useEffect(() => {
     if (dragging.current) return;
-    const compNodes = blocksToNodes(blocks, selectedId);
+    const compNodes = blocksToNodes(blocks, selectedId, savedPos);
     const pos = new Map(compNodes.map((n) => [n.id, n.position]));
     const { sourceNodes } = deriveDataFlow(blocks, pos);
     setNodes([...compNodes, ...sourceNodes]);
-  }, [blocks, selectedId, setNodes]);
+  }, [blocks, selectedId, savedPos, setNodes]);
 
   // Saved (user) edges + derived data-flow edges → set into edge state.
   // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on blocks/edges content
   useEffect(() => {
-    const compNodes = blocksToNodes(blocks, selectedId);
+    const compNodes = blocksToNodes(blocks, selectedId, savedPos);
     const pos = new Map(compNodes.map((n) => [n.id, n.position]));
     const { sourceEdges } = deriveDataFlow(blocks, pos);
     setEdges([...toFlowEdges(savedEdges), ...sourceEdges]);
-  }, [savedEdges, blocks, setEdges]);
+  }, [savedEdges, blocks, savedPos, setEdges]);
 
   const persist = (next: Edge[]) =>
     setBlueprintEdges(
@@ -269,14 +283,11 @@ function Graph({ focusBlockId }: { focusBlockId?: string }) {
       }}
       onNodeDragStop={(_, n) => {
         dragging.current = false;
-        const b = blocks.find((bb) => bb.id === n.id);
-        if (b) {
-          const f = frameXY(b);
-          updateBlockFrame(b.id, {
+        // Save into the blueprint's own layout — never the design frame.
+        if (!n.id.startsWith('dsrc-')) {
+          setBlueprintNodePosition(n.id, {
             x: Math.round(n.position.x),
             y: Math.round(n.position.y),
-            w: f.w,
-            h: f.h,
           });
         }
       }}

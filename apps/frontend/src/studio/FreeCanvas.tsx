@@ -734,9 +734,9 @@ export function FreeCanvas({
           const soleSel = isSel && sel.size === 1;
           return (
             // biome-ignore lint/a11y/noStaticElementInteractions: canvas object; selection/keyboard via inspector
-            // biome-ignore lint/a11y/useKeyWithClickEvents: canvas object; selection/keyboard via inspector
             <div
               key={b.id}
+              data-block-id={b.id}
               onPointerDown={(e) => startMove(e, b)}
               onDoubleClick={() => onOpenEditor?.(b.id)}
               onDragOver={
