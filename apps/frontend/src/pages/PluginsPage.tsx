@@ -113,17 +113,17 @@ export function PluginsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Plugins</h1>
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Eklentiler</h1>
         <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-          Browse, install, and manage event source integrations
+          Veri kaynağı entegrasyonlarını gözat, kur ve yönet
         </p>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 p-1 rounded-lg bg-[var(--color-bg-tertiary)] w-fit">
         {[
-          { id: 'marketplace' as Tab, label: 'Marketplace', count: available.length },
-          { id: 'installed' as Tab, label: 'Installed', count: installed.length },
+          { id: 'marketplace' as Tab, label: 'Mağaza', count: available.length },
+          { id: 'installed' as Tab, label: 'Kurulu', count: installed.length },
         ].map((t) => (
           <button
             key={t.id}
@@ -160,7 +160,7 @@ export function PluginsPage() {
             className="space-y-4"
           >
             {available.length === 0 ? (
-              <EmptyState title="No plugins available" description="Plugin registry is empty." />
+              <EmptyState title="Kaynak yok" description="Eklenti kayıt defteri boş." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {available.map((plugin) => {
@@ -186,7 +186,7 @@ export function PluginsPage() {
                               v{plugin.version} — {plugin.author}
                             </p>
                           </div>
-                          {isInstalled && <Badge variant="success">Installed</Badge>}
+                          {isInstalled && <Badge variant="success">Kurulu</Badge>}
                         </div>
                         <p className="text-xs text-[var(--color-text-secondary)] mt-3 line-clamp-2">
                           {plugin.description}
@@ -222,7 +222,7 @@ export function PluginsPage() {
                           title={canManageSources ? undefined : 'Requires the ADMIN role'}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                         >
-                          {isInstalled ? 'Installed' : 'Install'}
+                          {isInstalled ? 'Kurulu' : 'Kur'}
                         </button>
                       </div>
                     </motion.div>
@@ -241,8 +241,8 @@ export function PluginsPage() {
           >
             {installed.length === 0 ? (
               <EmptyState
-                title="No plugins installed"
-                description="Go to the Marketplace tab to browse and install plugins."
+                title="Kurulu eklenti yok"
+                description="Mağaza sekmesinden bir kaynak kur."
               />
             ) : (
               <div className="space-y-3">
@@ -342,16 +342,16 @@ export function PluginsPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (!window.confirm(`Uninstall "${plugin.name}"?`)) return;
+                                if (!window.confirm(`"${plugin.name}" kaldırılsın mı?`)) return;
                                 uninstallMutation.mutate(plugin.id, {
-                                  onSuccess: () => toast.success('Uninstalled'),
+                                  onSuccess: () => toast.success('Kaldırıldı'),
                                 });
                               }}
                               disabled={!canManageSources}
                               title={canManageSources ? undefined : 'Requires the ADMIN role'}
                               className="px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              Uninstall
+                              Kaldır
                             </button>
                           </div>
                         </div>

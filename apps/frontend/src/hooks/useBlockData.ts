@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import type { BlockData, ResolvedSlotValue } from '@/components/design/render-types';
 import { useEventSubscription } from '@/hooks/useSocket';
 import { resolveBindings } from '@/services/binding.service';
+import { applyVariables, useVariablesStore } from '@/storage/variables.store';
 import type { Binding, DashboardBlock, ResolvedBinding } from '@/types';
 
 /** Flattened binding plus where it belongs, so results can be reassembled. */
@@ -64,8 +65,12 @@ export function useBlockData(block: DashboardBlock): {
   isLoading: boolean;
   error: Error | null;
 } {
+  const variables = useVariablesStore((s) => s.variables);
   const collected = useMemo(() => collectBindings(block), [block]);
-  const bindings = useMemo(() => collected.map((c) => c.binding), [collected]);
+  const bindings = useMemo(
+    () => collected.map((c) => applyVariables(c.binding, variables)),
+    [collected, variables],
+  );
 
   const query = useQuery({
     queryKey: ['blockData', block.id, bindings],

@@ -26,8 +26,10 @@ import type {
   DashboardService,
   DataSourceService,
   EventService,
+  NodeService,
   NotificationService,
   PagePortabilityService,
+  ProjectService,
 } from '../../services/index.js';
 import {
   ForbiddenError,
@@ -40,16 +42,24 @@ import {
   configurePluginSchema,
   createBroadcastLinkSchema,
   createDashboardSchema,
+  createNodeSchema,
   createNotificationRuleSchema,
+  createPageSchema,
+  createProjectSchema,
   eventFilterSchema,
   idSchema,
   installPluginSchema,
+  moveNodeSchema,
+  nodeDataSchema,
   parseInput,
+  projectExportSchema,
+  renameNodeSchema,
   sourceMappingSchema,
   tokenSchema,
   updateBroadcastLinkSchema,
   updateDashboardSchema,
   updateNotificationRuleSchema,
+  updateProjectSchema,
 } from '../validation.js';
 
 /** Shape of the Mercurius context enriched by the application. */
@@ -60,6 +70,8 @@ export interface GqlContext extends MercuriusContext {
   dataSourceService: DataSourceService;
   bindingResolver: BindingResolver;
   dashboardService: DashboardService;
+  projectService: ProjectService;
+  nodeService: NodeService;
   portabilityService: PagePortabilityService;
   notificationService: NotificationService;
   broadcastService: BroadcastService;
@@ -196,6 +208,26 @@ export function buildResolvers() {
         return ctx.dashboardService.findById(parseInput(idSchema, args.id, 'id'));
       },
 
+      projects: async (_root: unknown, _args: unknown, ctx: GqlContext) => {
+        requireAuth(ctx);
+        return ctx.projectService.findAll();
+      },
+
+      project: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireAuth(ctx);
+        return ctx.projectService.findById(parseInput(idSchema, args.id, 'id'));
+      },
+
+      nodes: async (_root: unknown, args: { projectId: string }, ctx: GqlContext) => {
+        requireAuth(ctx);
+        return ctx.nodeService.listForProject(parseInput(idSchema, args.projectId, 'projectId'));
+      },
+
+      exportProject: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.projectService.export(parseInput(idSchema, args.id, 'id'));
+      },
+
       exportPage: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
         requireMinRole(ctx, 'EDITOR');
         return ctx.portabilityService.exportPage(parseInput(idSchema, args.id, 'id'));
@@ -252,6 +284,107 @@ export function buildResolvers() {
       deleteDashboard: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
         requireMinRole(ctx, 'EDITOR');
         return ctx.dashboardService.delete(parseInput(idSchema, args.id, 'id'));
+      },
+
+      createProject: async (
+        _root: unknown,
+        args: { input: Record<string, unknown> },
+        ctx: GqlContext,
+      ) => {
+        const user = requireMinRole(ctx, 'EDITOR');
+        return ctx.projectService.create(
+          user.sub,
+          parseInput(createProjectSchema, args.input, 'project input'),
+        );
+      },
+
+      importProject: async (_root: unknown, args: { spec: unknown }, ctx: GqlContext) => {
+        const user = requireMinRole(ctx, 'EDITOR');
+        const spec = parseInput(projectExportSchema, args.spec, 'project export');
+        return ctx.projectService.import(
+          user.sub,
+          spec as Parameters<typeof ctx.projectService.import>[1],
+        );
+      },
+
+      updateProject: async (
+        _root: unknown,
+        args: { id: string; input: Record<string, unknown> },
+        ctx: GqlContext,
+      ) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.projectService.update(
+          parseInput(idSchema, args.id, 'id'),
+          parseInput(updateProjectSchema, args.input, 'project input'),
+        );
+      },
+
+      deleteProject: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.projectService.delete(parseInput(idSchema, args.id, 'id'));
+      },
+
+      createPage: async (
+        _root: unknown,
+        args: { projectId: string; name: string },
+        ctx: GqlContext,
+      ) => {
+        requireMinRole(ctx, 'EDITOR');
+        const input = parseInput(createPageSchema, args, 'page input');
+        return ctx.projectService.createPage(input.projectId, input.name);
+      },
+
+      createNode: async (
+        _root: unknown,
+        args: { input: Record<string, unknown> },
+        ctx: GqlContext,
+      ) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.nodeService.create(parseInput(createNodeSchema, args.input, 'node input'));
+      },
+
+      renameNode: async (_root: unknown, args: { id: string; name: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        const input = parseInput(renameNodeSchema, { name: args.name }, 'node name');
+        return ctx.nodeService.rename(parseInput(idSchema, args.id, 'id'), input.name);
+      },
+
+      moveNode: async (
+        _root: unknown,
+        args: { id: string; parentId?: string | null; order: number },
+        ctx: GqlContext,
+      ) => {
+        requireMinRole(ctx, 'EDITOR');
+        const input = parseInput(
+          moveNodeSchema,
+          { parentId: args.parentId, order: args.order },
+          'node move',
+        );
+        return ctx.nodeService.move(
+          parseInput(idSchema, args.id, 'id'),
+          input.parentId ?? null,
+          input.order,
+        );
+      },
+
+      deleteNode: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.nodeService.delete(parseInput(idSchema, args.id, 'id'));
+      },
+
+      duplicateNode: async (_root: unknown, args: { id: string }, ctx: GqlContext) => {
+        requireMinRole(ctx, 'EDITOR');
+        return ctx.nodeService.duplicate(parseInput(idSchema, args.id, 'id'));
+      },
+
+      setNodeData: async (
+        _root: unknown,
+        args: { id: string; data: Record<string, unknown> },
+        ctx: GqlContext,
+      ) => {
+        requireMinRole(ctx, 'EDITOR');
+        const data = parseInput(nodeDataSchema, args.data, 'node data') as Record<string, unknown>;
+        return ctx.nodeService.setData(parseInput(idSchema, args.id, 'id'), data);
       },
 
       importPage: async (

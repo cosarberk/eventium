@@ -9,9 +9,11 @@
  */
 import type { ReactNode } from 'react';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { isPanelLevel } from '@/components/design/interactions';
 import { getComponent } from '@/components/design/registry';
 import { PanelWrapper } from '@/components/panels/PanelWrapper';
 import { useBlockData } from '@/hooks/useBlockData';
+import { useInteraction } from '@/hooks/useInteraction';
 import type { DashboardBlock } from '@/types';
 
 /** Props for {@link BlockRenderer}. */
@@ -26,6 +28,14 @@ export interface BlockRendererProps {
   onRemove?: () => void;
   /** Configure handler, shown as a control when editing. */
   onConfigure?: () => void;
+  /** Whether this block is selected (builder). */
+  selected?: boolean;
+  /** Select handler when the panel is clicked (builder). */
+  onSelect?: () => void;
+  /** Opens this block's code/logic editor (toolbar button + double-click). */
+  onOpenEditor?: () => void;
+  /** Free-canvas mode: the whole card is the drag handle (hide the grip). */
+  freeDrag?: boolean;
 }
 
 /** A centered, muted placeholder used for empty/error/unknown states. */
@@ -41,9 +51,23 @@ function Placeholder({ isLive, children }: { isLive?: boolean; children: ReactNo
   );
 }
 
-/** Resolves and renders the inner body of a block (no shell). */
-function BlockBody({ block, isLive }: { block: DashboardBlock; isLive?: boolean }) {
+/**
+ * Resolves a block's bindings and renders its component body (no shell). Exported
+ * so alternative canvases (e.g. the free-canvas viewport) render components
+ * identically to the grid.
+ */
+export function BlockContent({
+  block,
+  isLive,
+  interactive,
+}: {
+  block: DashboardBlock;
+  isLive?: boolean;
+  /** When true, the block's drill-down / cross-filter interaction is armed. */
+  interactive?: boolean;
+}) {
   const { data, isLoading, error } = useBlockData(block);
+  const { config, emit } = useInteraction(block, interactive ?? false);
   const entry = getComponent(block.componentType);
 
   if (!entry) {
@@ -67,7 +91,21 @@ function BlockBody({ block, isLive }: { block: DashboardBlock; isLive?: boolean 
     );
   }
 
-  return <>{entry.render({ block, data, isLive })}</>;
+  const body = entry.render({ block, data, isLive, onInteract: config ? emit : undefined });
+
+  // Panel-level interactions (navigate / static value) fire from a body click,
+  // for components that don't expose their own clickable rows.
+  if (config && isPanelLevel(config)) {
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: whole-panel drill-down; keyboard users can use row-level controls
+      // biome-ignore lint/a11y/useKeyWithClickEvents: whole-panel drill-down; keyboard users can use row-level controls
+      <div onClick={() => emit()} className="h-full w-full cursor-pointer" title="Drill-down">
+        {body}
+      </div>
+    );
+  }
+
+  return <>{body}</>;
 }
 
 /** TV/broadcast card shell used in the live view. */
@@ -96,8 +134,12 @@ export function BlockRenderer({
   editing,
   onRemove,
   onConfigure,
+  selected,
+  onSelect,
+  onOpenEditor,
+  freeDrag,
 }: BlockRendererProps): ReactNode {
-  const body = <BlockBody block={block} isLive={isLive} />;
+  const body = <BlockContent block={block} isLive={isLive} interactive={!editing} />;
 
   if (isLive) {
     return <LiveShell title={block.title}>{body}</LiveShell>;
@@ -107,8 +149,12 @@ export function BlockRenderer({
     <PanelWrapper
       title={block.title}
       editing={editing}
+      freeDrag={freeDrag}
       onRemove={onRemove}
       onConfigure={onConfigure}
+      onOpenEditor={onOpenEditor}
+      selected={selected}
+      onSelect={onSelect}
     >
       {body}
     </PanelWrapper>

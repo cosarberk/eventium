@@ -9,6 +9,7 @@
 
 import type { ReactNode } from 'react';
 import type { BoundValue, ComponentDescriptor, DashboardBlock, ResolvedBinding } from '@/types';
+import type { BlockInteractionEmit } from './interactions';
 
 /** One filled slot entry: the design-time bound value + its resolved data. */
 export interface ResolvedSlotValue {
@@ -29,6 +30,12 @@ export interface ComponentRenderProps {
   data: BlockData;
   /** True when rendering in the live/TV view (affects density/interactivity). */
   isLive?: boolean;
+  /**
+   * Fires the block's configured drill-down / cross-filter when present.
+   * Renderers that expose clickable rows (e.g. tables) call it with the clicked
+   * row; when absent the block has no interaction and rows stay inert.
+   */
+  onInteract?: BlockInteractionEmit;
 }
 
 /** A registry entry: a component's descriptor + its renderer. */

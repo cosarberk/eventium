@@ -11,6 +11,8 @@ import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout';
 import { BlockRenderer } from '@/components/design/BlockRenderer';
 import { blocksToLayout, GRID_COLS, layoutRowCount } from '@/components/panels/layout';
 import type { GridItem } from '@/storage/dashboard.store';
+import { type ComponentDef, parseComponentDef } from '@/studio/component-file';
+import type { LayoutMode } from '@/studio/project-types';
 import type { DashboardBlock } from '@/types';
 // Side-effect: registers all component renderers into the design registry.
 import '@/components/design/components';
@@ -41,7 +43,30 @@ export interface BlockGridProps {
   onRemoveBlock?: (id: string) => void;
   /** Open a block's inspector by id (builder only). */
   onConfigureBlock?: (id: string) => void;
+  /** Currently selected block id (builder only). */
+  selectedId?: string | null;
+  /** Select a block by id when clicked (builder only). */
+  onSelectBlock?: (id: string) => void;
+  /** Open a block's code/logic editor (double-click / toolbar; builder only). */
+  onOpenBlockEditor?: (id: string) => void;
+  /**
+   * Canvas layout behaviour. `grid` packs vertically (dashboards); `free` lets
+   * blocks stay exactly where dropped/moved and overlap (sites/tools); `flow`
+   * behaves like grid for now. Drives compaction/overlap only — the stored
+   * position model is identical, so the live/broadcast views are unaffected.
+   */
+  layoutMode?: LayoutMode;
+  /**
+   * Called when a component is dragged from the palette and dropped on the
+   * canvas, with its type and the grid cell it landed on (builder only).
+   */
+  onExternalDrop?: (componentType: string, at: { x: number; y: number }) => void;
+  /** Instance a reusable `.ec` component definition dropped from the Explorer. */
+  onAddComponentDef?: (def: ComponentDef) => void;
 }
+
+/** Placeholder shown while dragging a palette item over the canvas. */
+const DROPPING_ITEM = { i: '__dropping__', w: 4, h: 4 };
 
 /**
  * Renders the page grid. In live mode the row height is derived from the
@@ -55,6 +80,12 @@ export function BlockGrid({
   onLayoutChange,
   onRemoveBlock,
   onConfigureBlock,
+  selectedId,
+  onSelectBlock,
+  onOpenBlockEditor,
+  layoutMode = 'grid',
+  onExternalDrop,
+  onAddComponentDef,
 }: BlockGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -87,10 +118,30 @@ export function BlockGrid({
     onLayoutChange?.(next.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
   };
 
+  const droppable = editing && Boolean(onExternalDrop || onAddComponentDef);
+  /** Read the dragged item from the drop event and place it. */
+  const handleDrop = (_layout: Layout[], item: Layout, e: Event) => {
+    const dt = (e as DragEvent).dataTransfer;
+    // A `.ec` component definition dropped from the Explorer instances here.
+    const ecRaw = dt?.getData('application/eventium-component');
+    if (ecRaw && onAddComponentDef) {
+      const def = parseComponentDef(ecRaw);
+      if (def) onAddComponentDef(def);
+      return;
+    }
+    const type = dt?.getData('text/plain');
+    if (type && onExternalDrop) onExternalDrop(type, { x: item.x, y: item.y });
+  };
+
+  // `free` keeps blocks where placed (no auto-pack) and allows overlap — the
+  // desktop-canvas feel; other modes pack vertically. Live view never edits.
+  const free = layoutMode === 'free';
+
   return (
     <div ref={containerRef} className={isLive ? 'h-full w-full overflow-hidden' : undefined}>
       <Grid
         className={isLive ? 'h-full' : '-mx-1'}
+        style={!isLive && editing ? { minHeight: 420 } : undefined}
         layout={layout}
         cols={GRID_COLS}
         rowHeight={rowHeight}
@@ -98,8 +149,15 @@ export function BlockGrid({
         containerPadding={[isLive ? margin : 4, isLive ? margin : 4]}
         isDraggable={editing}
         isResizable={editing}
-        draggableHandle={DRAG_HANDLE}
-        compactType="vertical"
+        // Free canvas: grab the whole card to move it (desktop feel); grid mode:
+        // only the drag handle. Interactive elements never start a drag.
+        draggableHandle={free ? undefined : DRAG_HANDLE}
+        draggableCancel=".eventium-no-drag, button, input, textarea, select, a"
+        compactType={free ? null : 'vertical'}
+        allowOverlap={free}
+        isDroppable={droppable}
+        droppingItem={DROPPING_ITEM}
+        onDrop={droppable ? handleDrop : undefined}
         onLayoutChange={handleLayoutChange}
       >
         {blocks.map((block) => (
@@ -108,6 +166,12 @@ export function BlockGrid({
               block={block}
               isLive={isLive}
               editing={editing}
+              freeDrag={free && editing}
+              selected={editing && selectedId === block.id}
+              onSelect={editing && onSelectBlock ? () => onSelectBlock(block.id) : undefined}
+              onOpenEditor={
+                editing && onOpenBlockEditor ? () => onOpenBlockEditor(block.id) : undefined
+              }
               onRemove={editing && onRemoveBlock ? () => onRemoveBlock(block.id) : undefined}
               onConfigure={
                 editing && onConfigureBlock ? () => onConfigureBlock(block.id) : undefined

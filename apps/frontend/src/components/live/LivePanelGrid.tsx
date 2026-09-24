@@ -7,6 +7,8 @@
  */
 import { AnimatePresence, motion } from 'framer-motion';
 import { BlockGrid } from '@/components/design/BlockGrid';
+import { FreeCanvasView } from '@/studio/FreeCanvasView';
+import { readLayoutMode } from '@/studio/project';
 import type { Dashboard } from '@/types';
 
 interface LivePanelGridProps {
@@ -19,11 +21,11 @@ interface LivePanelGridProps {
  */
 export function LivePanelGrid({ dashboard }: LivePanelGridProps) {
   if (!dashboard) {
-    return <CenteredMessage text="No dashboard selected" />;
+    return <CenteredMessage text="Seçili pano yok" />;
   }
 
   if (dashboard.blocks.length === 0) {
-    return <CenteredMessage text="No blocks configured" />;
+    return <CenteredMessage text="Henüz bileşen yok" />;
   }
 
   return (
@@ -37,7 +39,11 @@ export function LivePanelGrid({ dashboard }: LivePanelGridProps) {
           transition={{ duration: 0.3 }}
           className="h-full text-white"
         >
-          <BlockGrid blocks={dashboard.blocks} isLive />
+          {readLayoutMode(dashboard.layout) === 'free' ? (
+            <FreeCanvasView blocks={dashboard.blocks} isLive />
+          ) : (
+            <BlockGrid blocks={dashboard.blocks} isLive />
+          )}
         </motion.div>
       </AnimatePresence>
     </div>

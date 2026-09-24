@@ -9,7 +9,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getComponent } from '@/components/design/registry';
-import type { BlockSlot, Dashboard, DashboardBlock, ID } from '@/types';
+import type { ComponentDef } from '@/studio/component-file';
+import type { BlockSlot, Dashboard, DashboardBlock, ID, Project } from '@/types';
 
 /** A single grid item (position + size) as reported by react-grid-layout. */
 export interface GridItem {
@@ -32,19 +33,67 @@ function makeBlockId(): string {
 
 /** Shape of the dashboard store state and actions. */
 interface DashboardState {
-  /** Currently active page. */
+  /** The open project (null on the start screen). */
+  activeProject: Project | null;
+  /** Currently active page within the open project. */
   activeDashboard: Dashboard | null;
   /** All available pages. */
   dashboards: Dashboard[];
   /** Whether the builder is in edit mode. */
   isEditMode: boolean;
+  /**
+   * Whether a project is open in the editor. When false the workspace shows the
+   * start screen (project browser). Not persisted: the app always opens to the
+   * start screen, like a desktop IDE.
+   */
+  projectOpen: boolean;
+  /** Whether the active page has unsaved edits (cleared on save/open). */
+  dirty: boolean;
+  /** Currently selected block id (drives the Inspector dock). */
+  selectedBlockId: ID | null;
+  /** Undo/redo history of block snapshots (structural edits). */
+  past: DashboardBlock[][];
+  future: DashboardBlock[][];
 
+  /** Selects a block for the inspector (null clears). */
+  selectBlock: (id: ID | null) => void;
+  /** Undo the last structural edit. */
+  undo: () => void;
+  /** Redo the last undone edit. */
+  redo: () => void;
   /** Replaces the list of pages and reconciles the active selection. */
   setDashboards: (dashboards: Dashboard[]) => void;
   /** Sets the active page. */
   setActiveDashboard: (dashboard: Dashboard) => void;
-  /** Adds a new block of the given component type at the bottom of the grid. */
-  addBlock: (componentType: string) => void;
+  /** Opens a project into the editor, focusing its first page. */
+  openProject: (project: Project) => void;
+  /** Switches the active page within the open project. */
+  openPage: (page: Dashboard) => void;
+  /** Appends a freshly created page to the open project and focuses it. */
+  addPage: (page: Dashboard) => void;
+  /** Marks the active page as saved (no unsaved edits). */
+  clearDirty: () => void;
+  /**
+   * Removes a page from the open project (after it was deleted). If it was the
+   * active page, switches to another page, or leaves none (empty-project state).
+   */
+  renamePageInProject: (pageId: ID, name: string) => void;
+  removePageFromProject: (pageId: ID) => void;
+  /** Closes the open project and returns to the start screen. */
+  closeProject: () => void;
+  /**
+   * Adds a new block of the given component type. Without `at` it lands on a
+   * fresh row below everything; with `at` it lands at that grid cell (used when
+   * a component is dragged from the palette and dropped on the canvas).
+   */
+  addBlock: (componentType: string, at?: { x: number; y: number }) => void;
+  /** Adds a fully-formed block (pre-filled slots/options/title) and selects it. */
+  addBlockWithSlots: (
+    componentType: string,
+    slots: Record<string, BlockSlot>,
+    options?: Record<string, unknown>,
+    title?: string,
+  ) => void;
   /** Removes a block by id. */
   removeBlock: (id: ID) => void;
   /** Applies a full grid layout (position + size + sortOrder) to the active page. */
@@ -55,6 +104,27 @@ interface DashboardState {
   updateBlockSlots: (id: ID, slots: Record<string, BlockSlot>) => void;
   /** Replaces a block's static component options. */
   updateBlockOptions: (id: ID, options: Record<string, unknown>) => void;
+  /** Moves a block up/down in paint order (z-order on the free canvas). */
+  reorderBlock: (id: ID, dir: -1 | 1) => void;
+  /** Sets a block's free-canvas frame (absolute px geometry) in its options. */
+  updateBlockFrame: (id: ID, frame: { x: number; y: number; w: number; h: number }) => void;
+  /** Persist the blueprint component-graph edges into the active page's layout. */
+  setBlueprintEdges: (edges: { id: string; source: string; target: string }[]) => void;
+  setBlueprintNodePosition: (id: ID, pos: { x: number; y: number }) => void;
+  /** Replace the whole block array (from the Page Source editor). */
+  replaceBlocks: (blocks: DashboardBlock[]) => void;
+  /** Merge fields into the active page's layout blob (design settings, links). */
+  patchLayout: (patch: Record<string, unknown>) => void;
+  /** Adds a block at an absolute free-canvas position (palette drop) and selects it. */
+  addBlockWithFrame: (componentType: string, at: { x: number; y: number }) => void;
+  /** Instance a reusable `.ec` component definition; `at` gives a canvas drop point. */
+  addBlockFromDef: (def: ComponentDef, at?: { x: number; y: number }) => void;
+  /**
+   * Clones the given block snapshots as new blocks, offsetting any free-canvas
+   * frame, selecting the last, and returning the new ids. Powers duplicate
+   * (⌘D) and paste (⌘V) on the canvas.
+   */
+  addClones: (snapshots: readonly DashboardBlock[], offset: number) => ID[];
   /** Toggles edit mode. */
   toggleEditMode: () => void;
   /** Sets edit mode explicitly. */
@@ -65,9 +135,41 @@ interface DashboardState {
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set, get) => ({
+      activeProject: null,
       activeDashboard: null,
       dashboards: [],
       isEditMode: false,
+      projectOpen: false,
+      dirty: false,
+      selectedBlockId: null,
+      past: [],
+      future: [],
+
+      selectBlock: (id) => set({ selectedBlockId: id }),
+
+      undo: () => {
+        const { past, future, activeDashboard } = get();
+        const prev = past[past.length - 1];
+        if (!prev || !activeDashboard) return;
+        set({
+          past: past.slice(0, -1),
+          future: [activeDashboard.blocks, ...future].slice(0, 50),
+          activeDashboard: { ...activeDashboard, blocks: prev },
+          selectedBlockId: null,
+        });
+      },
+
+      redo: () => {
+        const { past, future, activeDashboard } = get();
+        const next = future[0];
+        if (!next || !activeDashboard) return;
+        set({
+          past: [...past, activeDashboard.blocks].slice(-50),
+          future: future.slice(1),
+          activeDashboard: { ...activeDashboard, blocks: next },
+          selectedBlockId: null,
+        });
+      },
 
       setDashboards: (dashboards) => {
         const current = get().activeDashboard;
@@ -76,14 +178,81 @@ export const useDashboardStore = create<DashboardState>()(
             dashboards.find((d) => d.isDefault) ??
             dashboards[0])
           : (dashboards.find((d) => d.isDefault) ?? dashboards[0]);
-        set({ dashboards, activeDashboard: active ?? null });
+        set({ dashboards, activeDashboard: active ?? null, past: [], future: [] });
       },
 
       setActiveDashboard: (dashboard) => {
-        set({ activeDashboard: dashboard });
+        set({
+          activeDashboard: dashboard,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+          dirty: false,
+        });
       },
 
-      addBlock: (componentType) => {
+      openProject: (project) => {
+        set({
+          activeProject: project,
+          activeDashboard: project.pages[0] ?? null,
+          projectOpen: true,
+          isEditMode: true,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+          dirty: false,
+        });
+      },
+
+      openPage: (page) => {
+        set({ activeDashboard: page, selectedBlockId: null, past: [], future: [], dirty: false });
+      },
+
+      addPage: (page) => {
+        const project = get().activeProject;
+        set({
+          activeProject: project ? { ...project, pages: [...project.pages, page] } : project,
+          activeDashboard: page,
+          selectedBlockId: null,
+          past: [],
+          future: [],
+          dirty: false,
+        });
+      },
+
+      clearDirty: () => set({ dirty: false }),
+
+      renamePageInProject: (pageId, name) => {
+        const { activeProject, activeDashboard } = get();
+        if (!activeProject) return;
+        const pages = activeProject.pages.map((p) => (p.id === pageId ? { ...p, name } : p));
+        set({
+          activeProject: { ...activeProject, pages },
+          ...(activeDashboard?.id === pageId
+            ? { activeDashboard: { ...activeDashboard, name } }
+            : {}),
+        });
+      },
+
+      removePageFromProject: (pageId) => {
+        const { activeProject, activeDashboard } = get();
+        if (!activeProject) return;
+        const pages = activeProject.pages.filter((p) => p.id !== pageId);
+        const nextActive = activeDashboard?.id === pageId ? (pages[0] ?? null) : activeDashboard;
+        set({
+          activeProject: { ...activeProject, pages },
+          activeDashboard: nextActive,
+          ...(activeDashboard?.id === pageId
+            ? { selectedBlockId: null, past: [], future: [], dirty: false }
+            : {}),
+        });
+      },
+
+      closeProject: () => {
+        set({ projectOpen: false, activeProject: null, selectedBlockId: null });
+      },
+
+      addBlock: (componentType, at) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
 
@@ -91,11 +260,14 @@ export const useDashboardStore = create<DashboardState>()(
         const w = descriptor?.defaultWidth ?? 6;
         const h = descriptor?.defaultHeight ?? 4;
 
-        // Place the new block on a fresh row below everything else.
+        // Drop position when dragged from the palette; otherwise a fresh row
+        // below everything else.
         const bottom = dashboard.blocks.reduce(
           (max, b) => Math.max(max, b.position.y + b.size.h),
           0,
         );
+        const x = at ? Math.max(0, Math.min(at.x, 12 - Math.min(w, 12))) : 0;
+        const y = at ? Math.max(0, at.y) : bottom;
 
         // Pre-seed a slot entry per descriptor slot so the inspector and renderers
         // always have a stable key set to work with.
@@ -110,22 +282,71 @@ export const useDashboardStore = create<DashboardState>()(
           title: descriptor?.label ?? componentType,
           slots,
           options: {},
+          position: { x, y },
+          size: { w, h },
+          sortOrder: sortOrderFor(y, x),
+        };
+
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: block.id,
+        });
+      },
+
+      addBlockWithSlots: (componentType, slots, options, title) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(componentType)?.descriptor;
+        const w = descriptor?.defaultWidth ?? 6;
+        const h = descriptor?.defaultHeight ?? 4;
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType,
+          title: title ?? descriptor?.label ?? componentType,
+          slots,
+          options: options ?? {},
           position: { x: 0, y: bottom },
           size: { w, h },
           sortOrder: sortOrderFor(bottom, 0),
         };
-
-        set({ activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] } });
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: block.id,
+        });
       },
 
       removeBlock: (id) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
+        // Drop the block's blueprint node position too, so it leaves no orphan.
+        const layout = dashboard.layout as {
+          blueprintNodes?: Record<string, { x: number; y: number }>;
+        };
+        let nextLayout = dashboard.layout;
+        if (layout.blueprintNodes && id in layout.blueprintNodes) {
+          const { [id]: _drop, ...rest } = layout.blueprintNodes;
+          nextLayout = { ...dashboard.layout, blueprintNodes: rest };
+        }
         set({
           activeDashboard: {
             ...dashboard,
             blocks: dashboard.blocks.filter((b) => b.id !== id),
+            layout: nextLayout,
           },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          ...(get().selectedBlockId === id ? { selectedBlockId: null } : {}),
         });
       },
 
@@ -143,28 +364,223 @@ export const useDashboardStore = create<DashboardState>()(
             sortOrder: sortOrderFor(item.y, item.x),
           };
         });
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
       },
 
       updateBlockTitle: (id, title) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, title } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
       },
 
       updateBlockSlots: (id, slots) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, slots } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
       },
 
       updateBlockOptions: (id, options) => {
         const dashboard = get().activeDashboard;
         if (!dashboard) return;
         const blocks = dashboard.blocks.map((b) => (b.id === id ? { ...b, options } : b));
-        set({ activeDashboard: { ...dashboard, blocks } });
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
+      },
+
+      addBlockFromDef: (def, at) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(def.componentType)?.descriptor;
+        // Slots from the definition, or an empty set per the descriptor.
+        const slots: Record<string, BlockSlot> =
+          def.slots ??
+          Object.fromEntries((descriptor?.slots ?? []).map((s) => [s.key, { values: [] }]));
+        const gw = descriptor?.defaultWidth ?? 4;
+        const gh = descriptor?.defaultHeight ?? 3;
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        // Position is per-instance: a drop point becomes a free-canvas frame; the
+        // grid falls back to the bottom row.
+        const options: Record<string, unknown> = { ...(def.options ?? {}) };
+        if (at) options.frame = { x: at.x, y: at.y, w: gw * 80, h: gh * 60 };
+        else delete options.frame;
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType: def.componentType,
+          title: def.title ?? descriptor?.label ?? def.componentType,
+          slots,
+          options,
+          position: { x: 0, y: bottom },
+          size: { w: gw, h: gh },
+          sortOrder: sortOrderFor(bottom, 0),
+        };
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: block.id,
+        });
+      },
+
+      addBlockWithFrame: (componentType, at) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const descriptor = getComponent(componentType)?.descriptor;
+        const w = (descriptor?.defaultWidth ?? 4) * 80;
+        const h = (descriptor?.defaultHeight ?? 3) * 60;
+        const slots: Record<string, BlockSlot> = {};
+        for (const slot of descriptor?.slots ?? []) slots[slot.key] = { values: [] };
+        const bottom = dashboard.blocks.reduce(
+          (max, b) => Math.max(max, b.position.y + b.size.h),
+          0,
+        );
+        const block: DashboardBlock = {
+          id: makeBlockId(),
+          componentType,
+          title: descriptor?.label ?? componentType,
+          slots,
+          options: { frame: { x: at.x, y: at.y, w, h } },
+          position: { x: 0, y: bottom },
+          size: { w: descriptor?.defaultWidth ?? 4, h: descriptor?.defaultHeight ?? 3 },
+          sortOrder: sortOrderFor(bottom, 0),
+        };
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, block] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: block.id,
+        });
+      },
+
+      addClones: (snapshots, offset) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard || snapshots.length === 0) return [];
+        const clones = snapshots.map((b) => {
+          const fr = (b.options as { frame?: { x: number; y: number; w: number; h: number } })
+            .frame;
+          const options = fr
+            ? { ...b.options, frame: { ...fr, x: fr.x + offset, y: fr.y + offset } }
+            : { ...b.options };
+          return {
+            ...b,
+            id: makeBlockId(),
+            options,
+            position: { x: b.position.x, y: b.position.y + 1 },
+          } as DashboardBlock;
+        });
+        const lastId = clones[clones.length - 1]?.id ?? null;
+        set({
+          activeDashboard: { ...dashboard, blocks: [...dashboard.blocks, ...clones] },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+          selectedBlockId: lastId,
+        });
+        return clones.map((c) => c.id);
+      },
+
+      reorderBlock: (id, dir) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const blocks = [...dashboard.blocks];
+        const i = blocks.findIndex((b) => b.id === id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= blocks.length) return;
+        const a = blocks[i];
+        const b = blocks[j];
+        if (!a || !b) return;
+        blocks[i] = b;
+        blocks[j] = a;
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
+      },
+
+      updateBlockFrame: (id, frame) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const blocks = dashboard.blocks.map((b) =>
+          b.id === id ? { ...b, options: { ...b.options, frame } } : b,
+        );
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
+      },
+
+      setBlueprintEdges: (edges) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: {
+            ...dashboard,
+            layout: { ...dashboard.layout, blueprintEdges: edges },
+          },
+        });
+      },
+
+      setBlueprintNodePosition: (id, pos) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        const prev =
+          (dashboard.layout as { blueprintNodes?: Record<string, { x: number; y: number }> })
+            .blueprintNodes ?? {};
+        set({
+          activeDashboard: {
+            ...dashboard,
+            layout: { ...dashboard.layout, blueprintNodes: { ...prev, [id]: pos } },
+          },
+          dirty: true,
+        });
+      },
+
+      replaceBlocks: (blocks) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: { ...dashboard, blocks },
+          past: [...get().past, dashboard.blocks].slice(-50),
+          future: [],
+          dirty: true,
+        });
+      },
+
+      patchLayout: (patch) => {
+        const dashboard = get().activeDashboard;
+        if (!dashboard) return;
+        set({
+          activeDashboard: { ...dashboard, layout: { ...dashboard.layout, ...patch } },
+        });
       },
 
       toggleEditMode: () => {

@@ -80,6 +80,7 @@ export const pageSpecSchema = z.object({
   columns: z.number().int().min(1).max(24),
   blocks: z.array(pageBlockSchema).max(100),
   requiredSources: z.array(z.string().min(1)),
+  variables: z.record(z.string().min(1).max(64), z.string().max(512)).optional(),
 });
 
 export type BindingSchema = z.infer<typeof bindingSchema>;

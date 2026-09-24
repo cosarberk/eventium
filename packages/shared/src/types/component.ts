@@ -40,7 +40,7 @@ export interface SlotDescriptor {
 }
 
 /** The type of a static, non-bound component option control. */
-export type ComponentOptionType = 'string' | 'number' | 'boolean' | 'select';
+export type ComponentOptionType = 'string' | 'number' | 'boolean' | 'select' | 'code';
 
 /**
  * A static configuration knob for a component that is *not* data-bound

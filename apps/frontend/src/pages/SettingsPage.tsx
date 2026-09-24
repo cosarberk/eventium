@@ -18,9 +18,9 @@ export function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Settings</h1>
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Ayarlar</h1>
         <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-          Manage your dashboard preferences and notification rules
+          Görünüm tercihlerini ve bildirim kurallarını yönet
         </p>
       </div>
 
@@ -28,15 +28,15 @@ export function SettingsPage() {
       <section className="rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--color-border-primary)]">
           <h2 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
-            Appearance
+            Görünüm
           </h2>
         </div>
         <div className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">Theme</p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">Tema</p>
               <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-                Current: {mode === 'dark' ? 'Dark' : 'Light'} mode
+                Şu an: {mode === 'dark' ? 'Koyu' : 'Açık'} tema
               </p>
             </div>
             <button
@@ -62,7 +62,7 @@ export function SettingsPage() {
       <section className="rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--color-border-primary)]">
           <h2 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
-            Notification Rules
+            Bildirim Kuralları
           </h2>
         </div>
         <div className="divide-y divide-[var(--color-border-primary)]">
@@ -72,8 +72,8 @@ export function SettingsPage() {
             </div>
           ) : rules.length === 0 ? (
             <EmptyState
-              title="No notification rules"
-              description="Notification rules let you control which events trigger alerts."
+              title="Bildirim kuralı yok"
+              description="Bildirim kuralları hangi olayların uyarı tetikleyeceğini belirler."
             />
           ) : (
             rules.map((rule) => (
@@ -119,16 +119,16 @@ export function SettingsPage() {
       <section className="rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-primary)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--color-border-primary)]">
           <h2 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
-            About
+            Hakkında
           </h2>
         </div>
         <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[var(--color-text-secondary)]">Application</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">Uygulama</span>
             <span className="text-xs text-[var(--color-text-primary)] font-medium">Eventium</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[var(--color-text-secondary)]">Developer</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">Geliştirici</span>
             <span className="text-xs text-[var(--color-text-primary)] font-medium">Relteco</span>
           </div>
         </div>

@@ -21,15 +21,25 @@ const descriptor: ComponentDescriptor = {
   defaultHeight: 5,
 };
 
-function render({ data }: ComponentRenderProps) {
+function render({ data, onInteract }: ComponentRenderProps) {
   const columns = slotValues(data, 'columns');
-  if (columns.length === 0) return <EmptyState label="No columns" />;
+  if (columns.length === 0) return <EmptyState label="Sütun yok" />;
 
   const rowCount = columns.reduce(
     (max, col) => Math.max(max, effectiveList(col.resolved).length),
     0,
   );
-  if (rowCount === 0) return <EmptyState label="No rows" />;
+  if (rowCount === 0) return <EmptyState label="Satır yok" />;
+
+  const clickable = Boolean(onInteract);
+  /** Builds a `columnLabel -> cell` object for one row, for the interaction. */
+  const rowObject = (ri: number): Record<string, string | number | boolean | null> =>
+    Object.fromEntries(
+      columns.map((col, ci) => [
+        col.boundValue.label ?? `col-${ci}`,
+        effectiveList(col.resolved)[ri] ?? null,
+      ]),
+    );
 
   return (
     <div className="h-full overflow-auto">
@@ -48,9 +58,14 @@ function render({ data }: ComponentRenderProps) {
         </thead>
         <tbody>
           {Array.from({ length: rowCount }, (_, ri) => (
+            // biome-ignore lint/a11y/noStaticElementInteractions: cross-filter row; opt-in only when an interaction is configured
+            // biome-ignore lint/a11y/useKeyWithClickEvents: cross-filter row; opt-in only when an interaction is configured
             <tr
               key={ri}
-              className="border-b border-current/[0.06] transition-colors hover:bg-current/[0.03]"
+              onClick={clickable ? () => onInteract?.(rowObject(ri)) : undefined}
+              className={`border-b border-current/[0.06] transition-colors hover:bg-current/[0.03] ${
+                clickable ? 'cursor-pointer hover:bg-current/[0.06]' : ''
+              }`}
             >
               {columns.map(({ boundValue, resolved }) => {
                 const cell = effectiveList(resolved)[ri] ?? null;

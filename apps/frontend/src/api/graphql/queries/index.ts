@@ -118,6 +118,63 @@ export const GET_DASHBOARDS = gql`
   }
 `;
 
+/** Reusable page (dashboard) selection set for project queries. */
+const PAGE_FIELDS = `
+  id
+  name
+  description
+  layout
+  isDefault
+  projectId
+  pageOrder
+  blocks { ${BLOCK_FIELDS} }
+  createdAt
+  updatedAt
+`;
+
+/** Reusable node selection set. */
+const NODE_FIELDS = `
+  id
+  projectId
+  parentId
+  kind
+  name
+  order
+  refId
+  data
+  createdAt
+  updatedAt
+`;
+
+/** Fetches a project's file-system tree (flat). */
+export const GET_NODES = gql`
+  query GetNodes($projectId: ID!) {
+    nodes(projectId: $projectId) { ${NODE_FIELDS} }
+  }
+`;
+
+/** Exports a whole project to a portable spec (JSON). */
+export const EXPORT_PROJECT = gql`
+  query ExportProject($id: ID!) {
+    exportProject(id: $id)
+  }
+`;
+
+/** Fetches all projects with their pages. */
+export const GET_PROJECTS = gql`
+  query GetProjects {
+    projects {
+      id
+      name
+      type
+      description
+      createdAt
+      updatedAt
+      pages { ${PAGE_FIELDS} }
+    }
+  }
+`;
+
 /** Fetches a single dashboard by ID. */
 export const GET_DASHBOARD = gql`
   query GetDashboard($id: ID!) {

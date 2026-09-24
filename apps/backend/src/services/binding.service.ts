@@ -20,10 +20,22 @@ import type {
   ResolvedBinding,
 } from '@eventium/shared';
 import { parseFieldRef } from '@eventium/shared';
+import type { PrismaClient } from '@prisma/client';
 import type { DataSourceService } from './datasource.service.js';
 
+/**
+ * Reserved `sourceType` for in-project dataset files (`.ed`). A binding ref
+ * `ed:<nodeId>.<field>` resolves against a dataset node's stored JSON instead of
+ * a live plugin instance — this is the `.ed` layer that lets a component bind to
+ * a dataset by reference (never to embedded data).
+ */
+const DATASET_SOURCE = 'ed';
+
 export class BindingResolver {
-  constructor(private readonly dataSources: DataSourceService) {}
+  constructor(
+    private readonly dataSources: DataSourceService,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   /** Resolve many bindings concurrently; failures surface as `error` entries. */
   async resolveMany(bindings: readonly Binding[]): Promise<ResolvedBinding[]> {
@@ -37,17 +49,23 @@ export class BindingResolver {
       const parsed = parseFieldRef(binding.ref);
       if (!parsed) throw new Error(`Malformed binding ref "${binding.ref}"`);
 
-      const instanceId =
-        binding.instanceId ?? (await this.dataSources.findDefaultInstanceId(parsed.sourceType));
-      if (!instanceId) {
-        throw new Error(`No installed instance for source "${parsed.sourceType}"`);
+      // `.ed` dataset ref (`ed:<nodeId>.<field>`) resolves from a project file,
+      // not a plugin instance. Everything downstream (filter/shape) is identical.
+      let rows: ReadonlyArray<Record<string, unknown>>;
+      if (parsed.sourceType === DATASET_SOURCE) {
+        rows = await this.loadDataset(parsed.entity);
+      } else {
+        const instanceId =
+          binding.instanceId ?? (await this.dataSources.findDefaultInstanceId(parsed.sourceType));
+        if (!instanceId) {
+          throw new Error(`No installed instance for source "${parsed.sourceType}"`);
+        }
+        ({ rows } = await this.dataSources.queryResource(instanceId, {
+          entity: parsed.entity,
+          params: binding.params,
+          limit: binding.limit,
+        }));
       }
-
-      const { rows } = await this.dataSources.queryResource(instanceId, {
-        entity: parsed.entity,
-        params: binding.params,
-        limit: binding.limit,
-      });
 
       const filtered = binding.filters?.length
         ? rows.filter((row) => this.matchesFilters(row, binding.filters ?? []))
@@ -57,6 +75,33 @@ export class BindingResolver {
     } catch (err) {
       return { ref: binding.ref, shape, error: (err as Error).message };
     }
+  }
+
+  /**
+   * Load a dataset file's rows. The `.ed` node stores JSON in `data.content` —
+   * either an array of row objects, or an object with a `rows` array. Anything
+   * else yields an empty set (an unfinished dataset renders as "no data", not an
+   * error).
+   */
+  private async loadDataset(nodeId: string): Promise<Record<string, unknown>[]> {
+    const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
+    if (node?.kind !== 'datasource') {
+      throw new Error(`Dataset "${nodeId}" not found`);
+    }
+    const content = (node.data as { content?: unknown } | null)?.content;
+    if (typeof content !== 'string' || !content.trim()) return [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new Error(`Dataset "${node.name}" holds invalid JSON`);
+    }
+    const rows = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { rows?: unknown })?.rows)
+        ? (parsed as { rows: unknown[] }).rows
+        : [];
+    return rows.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null);
   }
 
   /** Reshape filtered rows into the binding's target shape. */

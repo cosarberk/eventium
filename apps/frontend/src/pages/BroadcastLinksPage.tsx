@@ -103,26 +103,24 @@ export function BroadcastLinksPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
-            Broadcast Links
-          </h1>
+          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Yayın Linkleri</h1>
           <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-            Create and manage public links to share your dashboards
+            Panolarını herkese açık bağlantılarla paylaş ve yönet
           </p>
         </div>
         <button
           onClick={openCreateModal}
           className="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors"
         >
-          Create Link
+          Link oluştur
         </button>
       </div>
 
       {/* Links list */}
       {links.length === 0 ? (
         <EmptyState
-          title="No broadcast links"
-          description="Create a broadcast link to share your dashboards via a public URL."
+          title="Yayın linki yok"
+          description="Panolarını herkese açık bir URL ile paylaşmak için bir yayın linki oluştur."
           icon={
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
               <path
@@ -138,7 +136,7 @@ export function BroadcastLinksPage() {
               onClick={openCreateModal}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors"
             >
-              Create your first link
+              İlk linkini oluştur
             </button>
           }
         />

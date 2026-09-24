@@ -4,7 +4,6 @@
 
 export { BroadcastLinksPage } from './BroadcastLinksPage';
 export { BroadcastPage } from './BroadcastPage';
-export { DashboardPage } from './DashboardPage';
 export { LivePage } from './LivePage';
 export { LoginPage } from './LoginPage';
 export { PluginsPage } from './PluginsPage';

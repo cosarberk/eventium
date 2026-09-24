@@ -40,8 +40,61 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   broadcastLinks BroadcastLink[]
+  projects       Project[]
 
   @@map("users")
+}
+
+/// A project — the top-level unit that owns pages, like a Visual Studio solution
+/// or a Figma file. Each project has its own type, pages, and (soon) data
+/// sources, variables, assets and blueprints. A "dashboard" row is one page of a
+/// project (kept named `Dashboard` for broadcast/live compatibility).
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  /// Project-type id (dashboard/site/app/report/blank) — drives the editor focus.
+  type        String   @default("dashboard")
+  description String   @default("")
+  ownerId     String   @map("owner_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  pages Dashboard[]
+  nodes Node[]
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+/// A file-system node in a project's tree — a folder or a typed file (page,
+/// blueprint, data source, script, component, variables, theme…). The `kind`
+/// string is resolved to an extension/icon/editor by the frontend file-type
+/// registry, so new file types need no schema change. A `page` node's `refId`
+/// points at the Dashboard that holds its design; other kinds keep content in
+/// `data`.
+model Node {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  parentId  String?  @map("parent_id")
+  /// Node kind: folder | page | blueprint | datasource | script | component | variables | theme | …
+  kind      String
+  name      String
+  order     Int      @default(0)
+  /// For `page` nodes: the Dashboard this file opens.
+  refId     String?  @map("ref_id")
+  /// Content for non-page files (script/data/variables/…), as JSON.
+  data      Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Node?   @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children Node[]  @relation("NodeChildren")
+
+  @@index([projectId])
+  @@index([parentId])
+  @@map("nodes")
 }
 
 /// A concrete installation of a plugin with its own configuration.
@@ -90,12 +143,18 @@ model Dashboard {
   description String   @default("")
   layout      Json     @default("{}")
   isDefault   Boolean  @default(false) @map("is_default")
+  /// Owning project. Nullable during migration; every page gets one via backfill.
+  projectId   String?  @map("project_id")
+  /// Order of this page within its project.
+  pageOrder   Int      @default(0) @map("page_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  project        Project?                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
   blocks         DashboardBlock[]
   broadcastLinks BroadcastLinkDashboard[]
 
+  @@index([projectId])
   @@map("dashboards")
 }
 

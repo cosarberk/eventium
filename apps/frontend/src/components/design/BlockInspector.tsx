@@ -9,6 +9,7 @@
  * descriptor from the registry.
  */
 import { getComponent } from '@/components/design/registry';
+import { useDashboardStore } from '@/storage/dashboard.store';
 import type {
   BlockSlot,
   BoundValue,
@@ -21,6 +22,7 @@ import type {
   ValueFormat,
 } from '@/types';
 import { BindingPicker } from './BindingPicker';
+import { type BlockInteraction, readInteractionDraft } from './interactions';
 
 /** Props for {@link BlockInspector}. */
 export interface BlockInspectorProps {
@@ -69,6 +71,22 @@ export function BlockInspector({
   onClose,
 }: BlockInspectorProps) {
   const descriptor = getComponent(block.componentType)?.descriptor;
+  const dashboards = useDashboardStore((s) => s.dashboards);
+  const activeDashboardId = useDashboardStore((s) => s.activeDashboard?.id);
+  const updateBlockFrame = useDashboardStore((s) => s.updateBlockFrame);
+  const frame = (block.options as { frame?: { x: number; y: number; w: number; h: number } }).frame;
+  const hasAnyValue = Object.values(block.slots).some((s) => s.values.length > 0);
+  const needsData = Boolean(descriptor?.slots.length) && !hasAnyValue;
+
+  /** Field labels the click interaction can read from (from bound values). */
+  const fieldLabels = Array.from(
+    new Set(
+      Object.values(block.slots)
+        .flatMap((slot) => slot.values)
+        .map((v) => v.label)
+        .filter((l): l is string => Boolean(l)),
+    ),
+  );
 
   /** Immutably replace the values of one slot. */
   const setSlotValues = (slotKey: string, values: BoundValue[]) => {
@@ -113,14 +131,14 @@ export function BlockInspector({
   };
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)]">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-[var(--color-bg-secondary)]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-primary)] px-4 py-3 shrink-0">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
             {descriptor?.label ?? block.componentType}
           </h2>
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">Block settings</p>
+          <p className="text-[10px] text-[var(--color-text-tertiary)]">Blok ayarları</p>
         </div>
         <button
           type="button"
@@ -143,7 +161,7 @@ export function BlockInspector({
         {/* Title */}
         <label className="block">
           <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            Title
+            Başlık
           </span>
           <input
             type="text"
@@ -153,9 +171,53 @@ export function BlockInspector({
           />
         </label>
 
+        {/* Quick data-bind call-to-action */}
+        {needsData && (
+          <div className="rounded-lg border border-brand-500/40 bg-brand-500/5 p-2.5">
+            <p className="text-xs font-semibold text-[var(--color-text-primary)]">
+              Henüz veri bağlı değil
+            </p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
+              Aşağıdaki alanlardan bir kaynak alanı bağla ya da hazır bir sorgu kur.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('eventium:query-builder'))}
+              className="mt-2 rounded-md bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-brand-600"
+            >
+              Query Builder'ı aç
+            </button>
+          </div>
+        )}
+
+        {/* Geometry (free-canvas blocks) */}
+        {frame && (
+          <section className="space-y-1.5">
+            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Geometri</h3>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['x', 'y', 'w', 'h'] as const).map((key) => (
+                <label key={key} className="block">
+                  <span className="mb-0.5 block text-center text-[9px] font-medium uppercase text-[var(--color-text-tertiary)]">
+                    {key}
+                  </span>
+                  <input
+                    type="number"
+                    value={Math.round(frame[key])}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) updateBlockFrame(block.id, { ...frame, [key]: n });
+                    }}
+                    className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-1.5 py-1 text-center text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
+
         {!descriptor && (
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            This component type is not registered; its slots cannot be edited.
+            Bu bileşen tipi kayıtlı değil; slot'ları düzenlenemez.
           </p>
         )}
 
@@ -189,7 +251,7 @@ export function BlockInspector({
               </div>
 
               {values.length === 0 && (
-                <p className="text-[11px] text-[var(--color-text-tertiary)]">No values bound.</p>
+                <p className="text-[11px] text-[var(--color-text-tertiary)]">Bağlı değer yok.</p>
               )}
 
               {values.map((value, index) => (
@@ -212,7 +274,7 @@ export function BlockInspector({
         {/* Options */}
         {descriptor?.options && descriptor.options.length > 0 && (
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Options</h3>
+            <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Seçenekler</h3>
             {descriptor.options.map((option) => (
               <OptionControl
                 key={option.key}
@@ -223,8 +285,171 @@ export function BlockInspector({
             ))}
           </section>
         )}
+
+        {/* Interaction (drill-down / cross-filter) */}
+        <InteractionEditor
+          interaction={readInteractionDraft(block.options)}
+          fieldLabels={fieldLabels}
+          boards={dashboards.map((d) => ({ id: d.id, name: d.name }))}
+          activeBoardId={activeDashboardId}
+          onChange={(next) => setOption('interaction', next ?? undefined)}
+        />
       </div>
     </aside>
+  );
+}
+
+/**
+ * Editor for a block's click interaction: none, cross-filter (write a runtime
+ * variable), or drill-down (navigate to another board, optionally seeding a
+ * variable from the clicked row).
+ */
+function InteractionEditor({
+  interaction,
+  fieldLabels,
+  boards,
+  activeBoardId,
+  onChange,
+}: {
+  interaction: BlockInteraction | null;
+  fieldLabels: string[];
+  boards: { id: string; name: string }[];
+  activeBoardId?: string;
+  onChange: (next: BlockInteraction | null) => void;
+}) {
+  const action = interaction?.action ?? 'none';
+  const source = interaction?.source ?? 'field';
+
+  /** Merges a patch into the current interaction and persists it. */
+  const patch = (p: Partial<BlockInteraction>) => {
+    onChange({ action: interaction?.action ?? 'set-variable', ...interaction, ...p });
+  };
+
+  const inputCls =
+    'w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40';
+
+  return (
+    <section className="space-y-2 border-t border-[var(--color-border-primary)] pt-4">
+      <div>
+        <h3 className="text-xs font-semibold text-[var(--color-text-primary)]">Etkileşim</h3>
+        <p className="text-[10px] text-[var(--color-text-tertiary)]">
+          Tıklayınca değişken ata (cross-filter) veya başka board'a git (drill-down).
+        </p>
+      </div>
+
+      {/* Action */}
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          Tıklama aksiyonu
+        </span>
+        <select
+          value={action}
+          onChange={(e) => {
+            const a = e.target.value;
+            if (a === 'none') return onChange(null);
+            if (a === 'set-variable') return onChange({ action: 'set-variable', source: 'field' });
+            return onChange({ action: 'navigate', boardId: boards[0]?.id, source: 'field' });
+          }}
+          className={inputCls}
+        >
+          <option value="none">Yok</option>
+          <option value="set-variable">Değişken ata (cross-filter)</option>
+          <option value="navigate">Board'a git (drill-down)</option>
+        </select>
+      </label>
+
+      {action !== 'none' && (
+        <>
+          {/* Variable name (required for set-variable, optional seed for navigate) */}
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+              Değişken adı{action === 'navigate' && ' (opsiyonel)'}
+            </span>
+            <input
+              type="text"
+              value={interaction?.variable ?? ''}
+              placeholder="ör. project"
+              onChange={(e) => patch({ variable: e.target.value || undefined })}
+              className={inputCls}
+            />
+          </label>
+
+          {(action === 'set-variable' || interaction?.variable) && (
+            <>
+              {/* Value source */}
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  Değer kaynağı
+                </span>
+                <select
+                  value={source}
+                  onChange={(e) => patch({ source: e.target.value as BlockInteraction['source'] })}
+                  className={inputCls}
+                >
+                  <option value="field">Tıklanan satırın alanı</option>
+                  <option value="static">Sabit değer</option>
+                </select>
+              </label>
+
+              {source === 'field' ? (
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    Alan (sütun etiketi)
+                  </span>
+                  <input
+                    type="text"
+                    list="eventium-field-labels"
+                    value={interaction?.field ?? ''}
+                    placeholder="ör. Project"
+                    onChange={(e) => patch({ field: e.target.value || undefined })}
+                    className={inputCls}
+                  />
+                  <datalist id="eventium-field-labels">
+                    {fieldLabels.map((l) => (
+                      <option key={l} value={l} />
+                    ))}
+                  </datalist>
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    Sabit değer
+                  </span>
+                  <input
+                    type="text"
+                    value={interaction?.value ?? ''}
+                    onChange={(e) => patch({ value: e.target.value })}
+                    className={inputCls}
+                  />
+                </label>
+              )}
+            </>
+          )}
+
+          {/* Navigate target */}
+          {action === 'navigate' && (
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                Hedef board
+              </span>
+              <select
+                value={interaction?.boardId ?? ''}
+                onChange={(e) => patch({ boardId: e.target.value || undefined })}
+                className={inputCls}
+              >
+                <option value="">Seç…</option>
+                {boards.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.id === activeBoardId ? ' (aktif)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -300,12 +525,12 @@ function BoundValueEditor({
       <input
         type="text"
         value={value.label ?? ''}
-        placeholder="Label (defaults to field name)"
+        placeholder="Etiket (varsayılan: alan adı)"
         onChange={(e) => onChange({ label: e.target.value || undefined })}
         className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-elevated)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40"
       />
 
-      {/* Color rules */}
+      {/* Renk kuralları */}
       <ColorRuleEditor
         rules={value.rules ?? []}
         onChange={(rules) => onChange({ rules: rules.length > 0 ? rules : undefined })}
@@ -334,7 +559,7 @@ function ColorRuleEditor({
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-          Color rules
+          Renk kuralları
         </span>
         <button
           type="button"
@@ -470,6 +695,23 @@ function OptionControl({
           checked={Boolean(current)}
           onChange={(e) => onChange(e.target.checked)}
           className="h-4 w-4 accent-brand-500"
+        />
+      </label>
+    );
+  }
+
+  if (option.type === 'code') {
+    return (
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-[var(--color-text-secondary)]">
+          {option.label}
+        </span>
+        <textarea
+          value={current === undefined || current === null ? '' : String(current)}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          rows={12}
+          className="w-full rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-primary)] px-2 py-1.5 font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-brand-500/40 resize-y"
         />
       </label>
     );

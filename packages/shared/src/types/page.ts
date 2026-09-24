@@ -144,4 +144,10 @@ export interface PageSpec {
   readonly blocks: readonly PageBlock[];
   /** Distinct data-source types referenced by any binding (e.g. `["gitlab"]`). */
   readonly requiredSources: readonly string[];
+  /**
+   * Runtime variables (`name → value`) the page ships with. Blocks reference
+   * these as `$name` in binding params; carrying them here means a shared or
+   * broadcast page arrives already parametrized. Omitted when the page has none.
+   */
+  readonly variables?: Readonly<Record<string, string>>;
 }

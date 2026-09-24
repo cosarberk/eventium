@@ -22,6 +22,10 @@ export type {
 export { DataSourceService } from './datasource.service.js';
 export type { EventFilter, PaginatedEvents } from './event.service.js';
 export { EventService } from './event.service.js';
+export type { CreateNodeInput } from './node.service.js';
+export { NodeService } from './node.service.js';
 export type { CreateRuleInput, UpdateRuleInput } from './notification.service.js';
 export { NotificationService } from './notification.service.js';
 export { PagePortabilityService } from './portability.service.js';
+export type { CreateProjectInput, UpdateProjectInput } from './project.service.js';
+export { ProjectService } from './project.service.js';
